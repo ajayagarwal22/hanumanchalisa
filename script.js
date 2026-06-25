@@ -121,25 +121,48 @@
     return { spans: spans, ends: ends };
   }
 
-  // Highlight the word being spoken (progress = 0..1 through the current verse).
-  function highlightWords(progress) {
-    lastProgress = progress;
-    let p = progress;
+  function applyActive(w, active) {
+    for (let i = 0; i < w.spans.length; i++) {
+      const cl = w.spans[i].classList;
+      if (i < active) { cl.add("said"); cl.remove("spoken"); }
+      else if (i === active) { cl.add("spoken"); cl.remove("said"); }
+      else { cl.remove("said"); cl.remove("spoken"); }
+    }
+  }
+
+  function idxByProgress(w, p) {
     if (p < 0) p = 0;
     if (p > 0.9999) p = 0.9999;
-    [wordData.hi, wordData.en].forEach((w) => {
-      if (!w || !w.spans.length) return;
-      let active = w.spans.length - 1;
-      for (let i = 0; i < w.ends.length; i++) {
-        if (p < w.ends[i]) { active = i; break; }
-      }
-      for (let i = 0; i < w.spans.length; i++) {
-        const cl = w.spans[i].classList;
-        if (i < active) { cl.add("said"); cl.remove("spoken"); }
-        else if (i === active) { cl.add("spoken"); cl.remove("said"); }
-        else { cl.remove("said"); cl.remove("spoken"); }
-      }
-    });
+    let active = w.spans.length - 1;
+    for (let i = 0; i < w.ends.length; i++) {
+      if (p < w.ends[i]) { active = i; break; }
+    }
+    return active;
+  }
+
+  function idxByTime(times, t) {
+    let active = 0;
+    for (let i = 0; i < times.length; i++) {
+      if (times[i] <= t) active = i; else break;
+    }
+    return active;
+  }
+
+  // Highlight the spoken word. When precise per-word timings exist for the
+  // Devanagari line (from forced alignment), the Hindi words follow the audio
+  // exactly; the transliteration follows the verse progress proportionally.
+  function highlightWords(progress, t) {
+    lastProgress = progress;
+    if (wordData.hi && wordData.hi.spans.length) {
+      const w = wordData.hi;
+      const active = (wordData.hiTimes && typeof t === "number")
+        ? idxByTime(wordData.hiTimes, t)
+        : idxByProgress(w, progress);
+      applyActive(w, active);
+    }
+    if (wordData.en && wordData.en.spans.length) {
+      applyActive(wordData.en, idxByProgress(wordData.en, progress));
+    }
   }
 
   function clearWordHighlight() {
@@ -154,8 +177,14 @@
 
     verseHi.innerHTML = splitLines(verse.hi);
     verseEn.innerHTML = splitLines(verse.en);
-    wordData = { hi: indexWords(verseHi), en: indexWords(verseEn) };
-    if (document.body.classList.contains("synced")) highlightWords(0);
+    wordData = { hi: indexWords(verseHi), en: indexWords(verseEn), hiTimes: null };
+    // Attach precise per-word timings for the Devanagari line, if available
+    // and consistent with the rendered word count.
+    if (typeof TIMINGS_WORDS !== "undefined" && Array.isArray(TIMINGS_WORDS)) {
+      const wt = TIMINGS_WORDS[index];
+      if (wt && wt.length === wordData.hi.spans.length) wordData.hiTimes = wt;
+    }
+    if (document.body.classList.contains("synced")) highlightWords(0, undefined);
 
     verseBadge.textContent = BADGE[verse.type] || "";
     verseCard.classList.toggle("is-section", verse.type === "section");
@@ -258,7 +287,7 @@
     if (!hasAudio) {
       audioHint.textContent = "No track loaded — using timed auto-advance.";
     } else if (explicitTimings()) {
-      audioHint.textContent = "Word-by-word sync (calibrated timings).";
+      audioHint.textContent = "Word-by-word sync (aligned to recitation).";
     } else {
       audioHint.textContent = "Loaded — words auto-sync. Use Calibrate for exact timing.";
     }
@@ -297,7 +326,7 @@
     const start = timings[index];
     const end = index < total - 1 ? timings[index + 1] : (audio.duration || start + 4);
     const span = Math.max(0.001, end - start);
-    highlightWords((t - start) / span);
+    highlightWords((t - start) / span, t);
   }
 
   function loadAudioSrc(src, label) {

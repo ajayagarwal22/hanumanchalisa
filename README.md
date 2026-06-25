@@ -8,7 +8,7 @@ warm, devotional aesthetic — glowing rays, rising embers, and a pulsing ॐ.
 
 - **Animated story scenes** — stylized figures (Hanuman, Ram, Sita, Lakshman, demons, the Sun, the ocean, the Sanjeevani mountain, Lanka in flames, sages, devas…) act out the meaning of each verse, changing as the recitation advances.
 - **Line-by-line animation** — every verse reveals its lines with a soft blur-up entrance.
-- **Synced audio playback** — load any recitation track and each **word** highlights (karaoke-style) in time with it; spoken words glow, sung words stay lit, upcoming words dim.
+- **Synced audio playback** — the bundled recitation is matched to the text with **forced alignment**, so each **word** highlights (karaoke-style) exactly in time; spoken words glow, sung words stay lit, upcoming words dim.
 - **Auto-play recitation** — plays through all 46 verses (opening Dohas → 40 Chaupais → closing Doha).
 - **Playback controls** — play/pause, next, previous, restart, and a clickable/seekable progress bar.
 - **Adjustable pace** — slider sets how long each verse stays on screen (used when no audio is loaded).
@@ -49,10 +49,11 @@ No recitation audio is bundled (to respect copyright), but syncing your own trac
 2. **It syncs immediately** — verses are spread evenly across the track and each word
    is highlighted in turn (weighted by word length), so the recitation reads
    karaoke-style right away.
-3. **Calibrate for exact timing (optional)** — click **Calibrate**, then tap `Space` /
-   `Enter` at the start of each verse. When finished, **Copy** the generated array into
-   `timings.js`, **Download** a ready-made `timings.js`, or **Use now** for the current
-   session. Calibrated timings (in `timings.js`) drive precise line highlighting.
+3. **Exact word-level sync** — the included `timings.js` was produced by **CTC forced
+   alignment** (MMS model) of the Devanagari text against `audio/chalisa.mp3`, giving a
+   start time for every verse *and every word*. If you swap in a different recording,
+   regenerate these timings (forced alignment) or use the **Calibrate** button to tap
+   per-verse start times and paste/download a new `timings.js`.
 
 If no track is loaded, the app falls back to the timed auto-advance using the pace slider.
 
@@ -74,7 +75,7 @@ python3 -m http.server 8123
 | `script.js`  | Animation engine, audio sync, calibrate tool, controls |
 | `data.js`    | The full Chalisa text (Devanagari + transliteration) |
 | `scenes.js`  | SVG character library + per-verse animated scene mapping |
-| `timings.js` | Per-verse audio start times (generated via Calibrate) |
+| `timings.js` | Per-verse + per-word audio start times (from forced alignment) |
 | `audio/`     | Place `chalisa.mp3` here to auto-load a recitation   |
 
 ॥ श्री हनुमते नमः ॥
