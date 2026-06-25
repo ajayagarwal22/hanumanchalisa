@@ -53,6 +53,8 @@
 
   let hasAudio = false;
   let sessionTimings = null; // set by Calibrate "Use now"
+  let wordData = { hi: null, en: null }; // per-container word spans + timing weights
+  let lastProgress = 0;
 
   let calibrating = false;
   let calIndex = 0;
@@ -95,8 +97,56 @@
   function splitLines(text) {
     return text
       .split("\n")
-      .map((l) => `<span class="ln">${l}</span>`)
+      .map((line) => {
+        const words = line
+          .split(/(\s+)/)
+          .map((tok) => (/^\s+$/.test(tok) || tok === "" ? tok : '<span class="wd">' + tok + "</span>"))
+          .join("");
+        return '<span class="ln">' + words + "</span>";
+      })
       .join("");
+  }
+
+  // Build the word list for a container with cumulative timing weights
+  // (longer words occupy a larger slice of the verse's time window).
+  function indexWords(container) {
+    const spans = Array.prototype.slice.call(container.querySelectorAll(".wd"));
+    const weights = spans.map((s) => Math.max(1, (s.textContent || "").trim().length));
+    const totalW = weights.reduce((a, b) => a + b, 0) || 1;
+    let acc = 0;
+    const ends = weights.map((w) => {
+      acc += w;
+      return acc / totalW;
+    });
+    return { spans: spans, ends: ends };
+  }
+
+  // Highlight the word being spoken (progress = 0..1 through the current verse).
+  function highlightWords(progress) {
+    lastProgress = progress;
+    let p = progress;
+    if (p < 0) p = 0;
+    if (p > 0.9999) p = 0.9999;
+    [wordData.hi, wordData.en].forEach((w) => {
+      if (!w || !w.spans.length) return;
+      let active = w.spans.length - 1;
+      for (let i = 0; i < w.ends.length; i++) {
+        if (p < w.ends[i]) { active = i; break; }
+      }
+      for (let i = 0; i < w.spans.length; i++) {
+        const cl = w.spans[i].classList;
+        if (i < active) { cl.add("said"); cl.remove("spoken"); }
+        else if (i === active) { cl.add("spoken"); cl.remove("said"); }
+        else { cl.remove("said"); cl.remove("spoken"); }
+      }
+    });
+  }
+
+  function clearWordHighlight() {
+    [wordData.hi, wordData.en].forEach((w) => {
+      if (!w) return;
+      w.spans.forEach((s) => s.classList.remove("said", "spoken"));
+    });
   }
 
   function render(animate) {
@@ -104,6 +154,8 @@
 
     verseHi.innerHTML = splitLines(verse.hi);
     verseEn.innerHTML = splitLines(verse.en);
+    wordData = { hi: indexWords(verseHi), en: indexWords(verseEn) };
+    if (document.body.classList.contains("synced")) highlightWords(0);
 
     verseBadge.textContent = BADGE[verse.type] || "";
     verseCard.classList.toggle("is-section", verse.type === "section");
@@ -122,18 +174,6 @@
     if (animate !== false && !document.body.classList.contains("synced")) {
       verseCard.classList.add("lit");
     }
-  }
-
-  function setActiveLine(progress) {
-    [verseHi, verseEn].forEach((container) => {
-      const lines = container.querySelectorAll(".ln");
-      const n = lines.length;
-      if (!n) return;
-      let active = Math.floor(progress * n);
-      if (active < 0) active = 0;
-      if (active > n - 1) active = n - 1;
-      lines.forEach((ln, i) => ln.classList.toggle("active", i === active));
-    });
   }
 
   // ---------- Timer (no-audio) playback ----------
@@ -208,8 +248,7 @@
     const synced = isSynced();
     document.body.classList.toggle("synced", synced);
     if (!synced) {
-      verseHi.querySelectorAll(".ln.active").forEach((e) => e.classList.remove("active"));
-      verseEn.querySelectorAll(".ln.active").forEach((e) => e.classList.remove("active"));
+      clearWordHighlight();
     }
     updateHint();
   }
@@ -219,9 +258,9 @@
     if (!hasAudio) {
       audioHint.textContent = "No track loaded — using timed auto-advance.";
     } else if (explicitTimings()) {
-      audioHint.textContent = "Synced to recitation (calibrated timings).";
+      audioHint.textContent = "Word-by-word sync (calibrated timings).";
     } else {
-      audioHint.textContent = "Loaded — auto-synced. Use Calibrate for exact line timing.";
+      audioHint.textContent = "Loaded — words auto-sync. Use Calibrate for exact timing.";
     }
   }
 
@@ -258,7 +297,7 @@
     const start = timings[index];
     const end = index < total - 1 ? timings[index + 1] : (audio.duration || start + 4);
     const span = Math.max(0.001, end - start);
-    setActiveLine((t - start) / span);
+    highlightWords((t - start) / span);
   }
 
   function loadAudioSrc(src, label) {

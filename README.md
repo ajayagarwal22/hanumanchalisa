@@ -8,7 +8,7 @@ warm, devotional aesthetic — glowing rays, rising embers, and a pulsing ॐ.
 
 - **Animated story scenes** — stylized figures (Hanuman, Ram, Sita, Lakshman, demons, the Sun, the ocean, the Sanjeevani mountain, Lanka in flames, sages, devas…) act out the meaning of each verse, changing as the recitation advances.
 - **Line-by-line animation** — every verse reveals its lines with a soft blur-up entrance.
-- **Synced audio playback** — load any recitation track and each line highlights (karaoke-style) in time with it.
+- **Synced audio playback** — load any recitation track and each **word** highlights (karaoke-style) in time with it; spoken words glow, sung words stay lit, upcoming words dim.
 - **Auto-play recitation** — plays through all 46 verses (opening Dohas → 40 Chaupais → closing Doha).
 - **Playback controls** — play/pause, next, previous, restart, and a clickable/seekable progress bar.
 - **Adjustable pace** — slider sets how long each verse stays on screen (used when no audio is loaded).
@@ -46,8 +46,9 @@ No recitation audio is bundled (to respect copyright), but syncing your own trac
 
 1. **Load a track** — click **Load recitation** (or drop a file at `audio/chalisa.mp3`,
    which is auto-loaded on startup).
-2. **It syncs immediately** — verses are spread evenly across the track so each line
-   highlights in time right away.
+2. **It syncs immediately** — verses are spread evenly across the track and each word
+   is highlighted in turn (weighted by word length), so the recitation reads
+   karaoke-style right away.
 3. **Calibrate for exact timing (optional)** — click **Calibrate**, then tap `Space` /
    `Enter` at the start of each verse. When finished, **Copy** the generated array into
    `timings.js`, **Download** a ready-made `timings.js`, or **Use now** for the current
