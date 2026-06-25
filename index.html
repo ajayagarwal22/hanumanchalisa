@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>हनुमान चालीसा · Hanuman Chalisa — Line by Line</title>
+  <meta name="description" content="An animated, line-by-line recitation of the Hanuman Chalisa in Devanagari and transliteration." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi:ital@0;1&family=Cinzel:wght@500;700&family=Mukta:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Ambient background layers -->
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="bg-rays" aria-hidden="true"></div>
+  <div class="embers" id="embers" aria-hidden="true"></div>
+
+  <main class="stage">
+    <header class="topbar">
+      <div class="om" aria-hidden="true">ॐ</div>
+      <div class="titles">
+        <h1 class="title-hi">हनुमान चालीसा</h1>
+        <p class="title-en">Hanuman Chalisa</p>
+      </div>
+      <button id="langToggle" class="lang-toggle" title="Toggle language">
+        <span data-lang-label>दोनों · Both</span>
+      </button>
+    </header>
+
+    <!-- Verse display -->
+    <section class="verse-wrap" aria-live="polite">
+      <div class="verse-card" id="verseCard">
+        <div class="verse-badge" id="verseBadge">दोहा</div>
+        <div class="verse-hi" id="verseHi"></div>
+        <div class="verse-en" id="verseEn"></div>
+      </div>
+      <div class="counter" id="counter">1 / 1</div>
+    </section>
+
+    <!-- Controls -->
+    <section class="controls">
+      <div class="progress" id="progressTrack">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <div class="buttons">
+        <button id="prevBtn" class="ctrl" title="Previous (←)" aria-label="Previous">
+          <svg viewBox="0 0 24 24"><path d="M15 5v14l-9-7z"/><rect x="5" y="5" width="2.4" height="14" rx="1"/></svg>
+        </button>
+        <button id="playBtn" class="ctrl ctrl-primary" title="Play / Pause (Space)" aria-label="Play or pause">
+          <svg class="ic-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>
+          <svg class="ic-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4.5" height="16" rx="1.2"/><rect x="13.5" y="4" width="4.5" height="16" rx="1.2"/></svg>
+        </button>
+        <button id="nextBtn" class="ctrl" title="Next (→)" aria-label="Next">
+          <svg viewBox="0 0 24 24"><path d="M9 5v14l9-7z"/><rect x="16.6" y="5" width="2.4" height="14" rx="1"/></svg>
+        </button>
+        <button id="restartBtn" class="ctrl" title="Restart (R)" aria-label="Restart">
+          <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
+        </button>
+      </div>
+
+      <div class="speed">
+        <span class="speed-label">गति · Pace</span>
+        <input type="range" id="speed" min="3" max="12" step="0.5" value="6.5" />
+        <span class="speed-val" id="speedVal">6.5s</span>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>॥ श्री हनुमते नमः ॥</span>
+    </footer>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
