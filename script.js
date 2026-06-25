@@ -306,17 +306,28 @@
     if (label) audioLoadLabel.textContent = label;
   }
 
-  // Optional auto-probe for a bundled track (audio/chalisa.mp3).
+  // Candidate locations for the bundled recitation, tried in order.
+  // 1) same-origin relative path (works locally and on GitHub Pages)
+  // 2) raw.githubusercontent fallback (works on raw.githack.com, whose CDN
+  //    refuses large media files with a 403).
+  const AUDIO_SOURCES = [
+    "audio/chalisa.mp3",
+    "https://raw.githubusercontent.com/ajayagarwal22/hanumanchalisa/cursor/hanuman-chalisa-animation-4603/audio/chalisa.mp3",
+  ];
+
   function probeBundledAudio() {
-    const probe = new Audio();
-    probe.preload = "metadata";
-    probe.addEventListener("loadedmetadata", () => {
-      if (!hasAudio && !audio.src) {
-        loadAudioSrc("audio/chalisa.mp3", "Recitation: chalisa.mp3");
-      }
-    });
-    probe.addEventListener("error", () => {}); // silently ignore if absent
-    probe.src = "audio/chalisa.mp3";
+    let i = 0;
+    (function tryNext() {
+      if (i >= AUDIO_SOURCES.length || hasAudio || audio.src) return;
+      const url = AUDIO_SOURCES[i++];
+      const probe = new Audio();
+      probe.preload = "metadata";
+      probe.addEventListener("loadedmetadata", function () {
+        if (!hasAudio && !audio.src) loadAudioSrc(url, "Recitation: chalisa.mp3");
+      }, { once: true });
+      probe.addEventListener("error", function () { tryNext(); }, { once: true });
+      probe.src = url;
+    })();
   }
 
   // ---------- Calibration ----------
