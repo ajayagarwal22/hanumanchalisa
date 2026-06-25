@@ -18,12 +18,42 @@
   const langToggle = document.getElementById("langToggle");
   const langLabel = langToggle.querySelector("[data-lang-label]");
 
+  // Audio elements
+  const audio = document.getElementById("audio");
+  const audioFile = document.getElementById("audioFile");
+  const audioLoadLabel = document.getElementById("audioLoadLabel");
+  const audioTime = document.getElementById("audioTime");
+  const audioHint = document.getElementById("audioHint");
+  const calibrateBtn = document.getElementById("calibrateBtn");
+
+  // Calibration elements
+  const calPanel = document.getElementById("calPanel");
+  const calStep = document.getElementById("calStep");
+  const calNow = document.getElementById("calNow");
+  const calTap = document.getElementById("calTap");
+  const calUndo = document.getElementById("calUndo");
+  const calFinish = document.getElementById("calFinish");
+  const calCancel = document.getElementById("calCancel");
+  const calOutput = document.getElementById("calOutput");
+  const calText = document.getElementById("calText");
+  const calCopy = document.getElementById("calCopy");
+  const calDownload = document.getElementById("calDownload");
+  const calUse = document.getElementById("calUse");
+  const calClose = document.getElementById("calClose");
+
   // ---------- State ----------
+  const total = CHALISA.length;
   let index = 0;
   let playing = false;
   let timer = null;
   let perVerseMs = parseFloat(speed.value) * 1000;
-  const total = CHALISA.length;
+
+  let hasAudio = false;
+  let sessionTimings = null; // set by Calibrate "Use now"
+
+  let calibrating = false;
+  let calIndex = 0;
+  let captured = [];
 
   const LANG_MODES = [
     { key: "both", label: "दोनों · Both", cls: "lang-both" },
@@ -34,7 +64,31 @@
 
   const BADGE = { doha: "दोहा", chaupai: "चौपाई", section: "" };
 
-  // ---------- Helpers ----------
+  // ---------- Timing helpers ----------
+  function explicitTimings() {
+    if (sessionTimings && sessionTimings.length === total) return sessionTimings;
+    if (typeof TIMINGS !== "undefined" && Array.isArray(TIMINGS) && TIMINGS.length === total) {
+      return TIMINGS;
+    }
+    return null;
+  }
+
+  // Returns a usable per-verse start-time array, or null.
+  function effectiveTimings() {
+    const explicit = explicitTimings();
+    if (explicit) return explicit;
+    if (hasAudio && isFinite(audio.duration) && audio.duration > 0) {
+      const step = audio.duration / total;
+      return Array.from({ length: total }, (_, i) => i * step);
+    }
+    return null;
+  }
+
+  function isSynced() {
+    return hasAudio && effectiveTimings() !== null;
+  }
+
+  // ---------- Render ----------
   function splitLines(text) {
     return text
       .split("\n")
@@ -52,35 +106,44 @@
     verseCard.classList.toggle("is-section", verse.type === "section");
 
     counter.textContent = `${index + 1} / ${total}`;
-    progressFill.style.width = `${((index + 1) / total) * 100}%`;
+    if (!hasAudio) {
+      progressFill.style.width = `${((index + 1) / total) * 100}%`;
+    }
 
-    // restart entrance animation
     verseCard.classList.remove("show", "lit");
-    // force reflow so the animation replays
-    void verseCard.offsetWidth;
-    if (animate !== false) {
-      verseCard.classList.add("show", "lit");
-    } else {
-      verseCard.classList.add("show");
+    void verseCard.offsetWidth; // reflow to replay animation
+    verseCard.classList.add("show");
+    if (animate !== false && !document.body.classList.contains("synced")) {
+      verseCard.classList.add("lit");
     }
   }
 
+  function setActiveLine(progress) {
+    [verseHi, verseEn].forEach((container) => {
+      const lines = container.querySelectorAll(".ln");
+      const n = lines.length;
+      if (!n) return;
+      let active = Math.floor(progress * n);
+      if (active < 0) active = 0;
+      if (active > n - 1) active = n - 1;
+      lines.forEach((ln, i) => ln.classList.toggle("active", i === active));
+    });
+  }
+
+  // ---------- Timer (no-audio) playback ----------
   function clearTimer() {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
+    if (timer) { clearTimeout(timer); timer = null; }
   }
 
   function scheduleNext() {
     clearTimer();
-    if (!playing) return;
+    if (!playing || hasAudio) return;
     timer = setTimeout(() => {
       if (index < total - 1) {
         go(index + 1);
         scheduleNext();
       } else {
-        pause(); // reached the end
+        pause();
       }
     }, perVerseMs);
   }
@@ -90,24 +153,35 @@
     render(true);
   }
 
+  // ---------- Unified play/pause ----------
   function play() {
+    if (hasAudio) {
+      if (audio.ended || audio.currentTime >= (audio.duration || Infinity)) audio.currentTime = 0;
+      audio.play().catch(() => {});
+      return; // body.playing handled by audio events
+    }
     playing = true;
     document.body.classList.add("playing");
-    // If at the very end, restart from the top.
     if (index >= total - 1) go(0);
     scheduleNext();
   }
 
   function pause() {
+    if (hasAudio) { audio.pause(); return; }
     playing = false;
     document.body.classList.remove("playing");
     clearTimer();
   }
 
   function togglePlay() {
-    playing ? pause() : play();
+    if (hasAudio) {
+      audio.paused ? play() : pause();
+    } else {
+      playing ? pause() : play();
+    }
   }
 
+  // ---------- Language ----------
   function setLang(i) {
     langIdx = (i + LANG_MODES.length) % LANG_MODES.length;
     const mode = LANG_MODES[langIdx];
@@ -116,8 +190,282 @@
     langLabel.textContent = mode.label;
   }
 
-  // ---------- Embers ----------
-  function spawnEmbers() {
+  // ---------- Audio sync ----------
+  function fmt(t) {
+    if (!isFinite(t) || t < 0) t = 0;
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  }
+
+  function refreshSyncState() {
+    const synced = isSynced();
+    document.body.classList.toggle("synced", synced);
+    if (!synced) {
+      verseHi.querySelectorAll(".ln.active").forEach((e) => e.classList.remove("active"));
+      verseEn.querySelectorAll(".ln.active").forEach((e) => e.classList.remove("active"));
+    }
+    updateHint();
+  }
+
+  function updateHint() {
+    if (calibrating) return;
+    if (!hasAudio) {
+      audioHint.textContent = "No track loaded — using timed auto-advance.";
+    } else if (explicitTimings()) {
+      audioHint.textContent = "Synced to recitation (calibrated timings).";
+    } else {
+      audioHint.textContent = "Loaded — auto-synced. Use Calibrate for exact line timing.";
+    }
+  }
+
+  function onAudioReady() {
+    hasAudio = true;
+    document.body.classList.add("has-audio");
+    calibrateBtn.disabled = false;
+    audioTime.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`;
+    clearTimer();
+    refreshSyncState();
+  }
+
+  function onTime() {
+    if (calibrating) {
+      audioTime.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`;
+      return;
+    }
+    audioTime.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`;
+
+    if (hasAudio && isFinite(audio.duration) && audio.duration > 0) {
+      progressFill.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+    }
+
+    const timings = effectiveTimings();
+    if (!timings) return;
+
+    const t = audio.currentTime;
+    let target = 0;
+    for (let i = 0; i < total; i++) {
+      if (timings[i] <= t) target = i; else break;
+    }
+    if (target !== index) go(target);
+
+    const start = timings[index];
+    const end = index < total - 1 ? timings[index + 1] : (audio.duration || start + 4);
+    const span = Math.max(0.001, end - start);
+    setActiveLine((t - start) / span);
+  }
+
+  function loadAudioSrc(src, label) {
+    audio.src = src;
+    audio.load();
+    if (label) audioLoadLabel.textContent = label;
+  }
+
+  // Optional auto-probe for a bundled track (audio/chalisa.mp3).
+  function probeBundledAudio() {
+    const probe = new Audio();
+    probe.preload = "metadata";
+    probe.addEventListener("loadedmetadata", () => {
+      if (!hasAudio && !audio.src) {
+        loadAudioSrc("audio/chalisa.mp3", "Recitation: chalisa.mp3");
+      }
+    });
+    probe.addEventListener("error", () => {}); // silently ignore if absent
+    probe.src = "audio/chalisa.mp3";
+  }
+
+  // ---------- Calibration ----------
+  function showCalVerse() {
+    const v = CHALISA[calIndex];
+    const firstHi = v.hi.split("\n")[0];
+    calNow.innerHTML = `<div style="opacity:.7;font-size:.7em;letter-spacing:2px">VERSE ${calIndex + 1} / ${total}</div>${firstHi}`;
+    calStep.innerHTML = "Tap exactly when this verse <b>begins</b> in the audio.";
+  }
+
+  function startCalibrate() {
+    if (!hasAudio) return;
+    calibrating = true;
+    calIndex = 0;
+    captured = [];
+    calOutput.hidden = true;
+    calPanel.hidden = false;
+    audioHint.textContent = "Calibrating…";
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    showCalVerse();
+  }
+
+  function calTapNow() {
+    if (!calibrating || calIndex >= total) return;
+    captured[calIndex] = Math.max(0, Math.round(audio.currentTime * 1000) / 1000);
+    calIndex++;
+    if (calIndex >= total) {
+      finishCalibrate();
+    } else {
+      showCalVerse();
+    }
+  }
+
+  function calUndoTap() {
+    if (!calibrating || calIndex === 0) return;
+    calIndex--;
+    captured.length = calIndex;
+    calOutput.hidden = true;
+    showCalVerse();
+  }
+
+  function buildTimingsFile(arr) {
+    const body = arr.map((n) => "  " + n).join(",\n");
+    return (
+      "// Generated by the in-app Calibrate tool.\n" +
+      "// One start time (seconds) per verse, aligned with CHALISA in data.js.\n" +
+      "const TIMINGS = [\n" + body + "\n];\n"
+    );
+  }
+
+  function finishCalibrate() {
+    audio.pause();
+    const arr = captured.slice();
+    calOutput.hidden = false;
+    calText.value = buildTimingsFile(arr);
+    if (arr.length === total) {
+      calStep.innerHTML = "All verses captured ✓";
+      calUse.disabled = false;
+    } else {
+      calStep.innerHTML = `Captured ${arr.length} / ${total}. You can finish later or re-calibrate for full sync.`;
+      calUse.disabled = arr.length !== total;
+    }
+    calNow.textContent = "";
+  }
+
+  function endCalibrate() {
+    calibrating = false;
+    calPanel.hidden = true;
+    audio.pause();
+    refreshSyncState();
+  }
+
+  // ---------- Events ----------
+  playBtn.addEventListener("click", togglePlay);
+  nextBtn.addEventListener("click", () => {
+    const timings = effectiveTimings();
+    if (hasAudio && timings && index < total - 1) {
+      audio.currentTime = timings[index + 1] + 0.01;
+    } else {
+      go(index + 1);
+      if (playing) scheduleNext();
+    }
+  });
+  prevBtn.addEventListener("click", () => {
+    const timings = effectiveTimings();
+    if (hasAudio && timings) {
+      audio.currentTime = index > 0 ? timings[index - 1] + 0.01 : 0;
+    } else {
+      go(index - 1);
+      if (playing) scheduleNext();
+    }
+  });
+  restartBtn.addEventListener("click", () => {
+    if (hasAudio) { audio.currentTime = 0; }
+    else { go(0); if (playing) scheduleNext(); }
+  });
+
+  speed.addEventListener("input", () => {
+    perVerseMs = parseFloat(speed.value) * 1000;
+    speedVal.textContent = parseFloat(speed.value).toFixed(1) + "s";
+    if (playing) scheduleNext();
+  });
+
+  langToggle.addEventListener("click", () => setLang(langIdx + 1));
+
+  progressTrack.addEventListener("click", (ev) => {
+    const rect = progressTrack.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    if (hasAudio && isFinite(audio.duration)) {
+      audio.currentTime = ratio * audio.duration;
+    } else {
+      go(Math.floor(ratio * total));
+      if (playing) scheduleNext();
+    }
+  });
+
+  // Audio element events
+  audio.addEventListener("loadedmetadata", onAudioReady);
+  audio.addEventListener("durationchange", () => {
+    if (hasAudio) audioTime.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`;
+  });
+  audio.addEventListener("timeupdate", onTime);
+  audio.addEventListener("play", () => { if (!calibrating) document.body.classList.add("playing"); });
+  audio.addEventListener("pause", () => { if (!calibrating) document.body.classList.remove("playing"); });
+  audio.addEventListener("ended", () => document.body.classList.remove("playing"));
+
+  // File loading
+  audioFile.addEventListener("change", (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    loadAudioSrc(URL.createObjectURL(file), file.name);
+  });
+
+  // Calibration controls
+  calibrateBtn.addEventListener("click", startCalibrate);
+  calTap.addEventListener("click", calTapNow);
+  calUndo.addEventListener("click", calUndoTap);
+  calFinish.addEventListener("click", finishCalibrate);
+  calCancel.addEventListener("click", endCalibrate);
+  calClose.addEventListener("click", endCalibrate);
+  calCopy.addEventListener("click", () => {
+    calText.select();
+    navigator.clipboard && navigator.clipboard.writeText(calText.value);
+    calCopy.textContent = "Copied!";
+    setTimeout(() => (calCopy.textContent = "Copy"), 1400);
+  });
+  calDownload.addEventListener("click", () => {
+    const blob = new Blob([calText.value], { type: "text/javascript" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "timings.js";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  calUse.addEventListener("click", () => {
+    if (captured.length !== total) return;
+    sessionTimings = captured.slice();
+    endCalibrate();
+    audio.currentTime = 0;
+    go(0);
+    refreshSyncState();
+  });
+
+  // Keyboard
+  document.addEventListener("keydown", (ev) => {
+    if (calibrating) {
+      if (ev.key === " " || ev.key === "Enter") { ev.preventDefault(); calTapNow(); }
+      else if (ev.key === "Escape") { endCalibrate(); }
+      else if (ev.key === "Backspace") { ev.preventDefault(); calUndoTap(); }
+      return;
+    }
+    switch (ev.key) {
+      case " ":
+        ev.preventDefault(); togglePlay(); break;
+      case "ArrowRight":
+        nextBtn.click(); break;
+      case "ArrowLeft":
+        prevBtn.click(); break;
+      case "r": case "R":
+        restartBtn.click(); break;
+      case "l": case "L":
+        setLang(langIdx + 1); break;
+    }
+  });
+
+  // ---------- Init ----------
+  setLang(0);
+  speedVal.textContent = parseFloat(speed.value).toFixed(1) + "s";
+  calibrateBtn.disabled = true;
+  updateHint();
+
+  // embers
+  (function spawnEmbers() {
     const container = document.getElementById("embers");
     if (!container) return;
     const count = window.matchMedia("(max-width: 560px)").matches ? 16 : 30;
@@ -133,70 +481,11 @@
       e.style.setProperty("--drift", (Math.random() * 80 - 40) + "px");
       container.appendChild(e);
     }
-  }
+  })();
 
-  // ---------- Events ----------
-  playBtn.addEventListener("click", togglePlay);
-
-  nextBtn.addEventListener("click", () => {
-    go(index + 1);
-    if (playing) scheduleNext();
-  });
-
-  prevBtn.addEventListener("click", () => {
-    go(index - 1);
-    if (playing) scheduleNext();
-  });
-
-  restartBtn.addEventListener("click", () => {
-    go(0);
-    if (playing) scheduleNext();
-  });
-
-  speed.addEventListener("input", () => {
-    perVerseMs = parseFloat(speed.value) * 1000;
-    speedVal.textContent = parseFloat(speed.value).toFixed(1) + "s";
-    if (playing) scheduleNext();
-  });
-
-  langToggle.addEventListener("click", () => setLang(langIdx + 1));
-
-  progressTrack.addEventListener("click", (ev) => {
-    const rect = progressTrack.getBoundingClientRect();
-    const ratio = (ev.clientX - rect.left) / rect.width;
-    go(Math.floor(ratio * total));
-    if (playing) scheduleNext();
-  });
-
-  document.addEventListener("keydown", (ev) => {
-    switch (ev.key) {
-      case " ":
-        ev.preventDefault();
-        togglePlay();
-        break;
-      case "ArrowRight":
-        go(index + 1);
-        if (playing) scheduleNext();
-        break;
-      case "ArrowLeft":
-        go(index - 1);
-        if (playing) scheduleNext();
-        break;
-      case "r":
-      case "R":
-        go(0);
-        if (playing) scheduleNext();
-        break;
-      case "l":
-      case "L":
-        setLang(langIdx + 1);
-        break;
-    }
-  });
-
-  // ---------- Init ----------
-  setLang(0);
-  speedVal.textContent = parseFloat(speed.value).toFixed(1) + "s";
-  spawnEmbers();
   render(true);
+
+  // If explicit timings are already present, we still need audio to sync to.
+  // Try to auto-load a bundled track; harmless if it doesn't exist.
+  probeBundledAudio();
 })();

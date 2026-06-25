@@ -38,6 +38,51 @@
       <div class="counter" id="counter">1 / 1</div>
     </section>
 
+    <!-- Audio bar -->
+    <section class="audiobar" id="audioBar">
+      <audio id="audio" preload="metadata"></audio>
+
+      <label class="audio-load" title="Load a recitation audio file">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>
+        <span id="audioLoadLabel">Load recitation</span>
+        <input type="file" id="audioFile" accept="audio/*" hidden />
+      </label>
+
+      <span class="audio-time" id="audioTime">0:00 / 0:00</span>
+
+      <button id="calibrateBtn" class="audio-cal" title="Tap along to build the sync timings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zm7 10a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V23h2v-3.06A9 9 0 0 0 21 11z"/></svg>
+        <span>Calibrate</span>
+      </button>
+
+      <span class="audio-hint" id="audioHint">No track loaded — using timed auto-advance.</span>
+    </section>
+
+    <!-- Calibration overlay -->
+    <div class="cal-panel" id="calPanel" hidden>
+      <div class="cal-inner">
+        <h2>Sync Calibration</h2>
+        <p class="cal-step" id="calStep">Press <b>Load recitation</b> first, then start.</p>
+        <div class="cal-now" id="calNow"></div>
+        <div class="cal-actions">
+          <button id="calTap" class="cal-tap" title="Tap at the start of this verse (Space)">Tap ⏎ / Space</button>
+          <button id="calUndo" class="cal-ghost">Undo</button>
+          <button id="calFinish" class="cal-ghost">Finish</button>
+          <button id="calCancel" class="cal-ghost">Cancel</button>
+        </div>
+        <div class="cal-output" id="calOutput" hidden>
+          <p>Done! Copy these into <code>timings.js</code>, or download the file.</p>
+          <textarea id="calText" readonly spellcheck="false"></textarea>
+          <div class="cal-actions">
+            <button id="calCopy" class="cal-tap">Copy</button>
+            <button id="calDownload" class="cal-ghost">Download timings.js</button>
+            <button id="calUse" class="cal-ghost">Use now (this session)</button>
+            <button id="calClose" class="cal-ghost">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Controls -->
     <section class="controls">
       <div class="progress" id="progressTrack">
@@ -73,6 +118,7 @@
   </main>
 
   <script src="data.js"></script>
+  <script src="timings.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
