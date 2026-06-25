@@ -23,6 +23,9 @@
         <h1 class="title-hi">हनुमान चालीसा</h1>
         <p class="title-en">Hanuman Chalisa</p>
       </div>
+      <button id="textToggle" class="lang-toggle ghost-toggle" title="Show / hide verse text (T)">
+        <span data-text-label>पाठ · Text</span>
+      </button>
       <button id="langToggle" class="lang-toggle" title="Toggle language">
         <span data-lang-label>दोनों · Both</span>
       </button>
@@ -30,6 +33,10 @@
 
     <!-- Verse display -->
     <section class="verse-wrap" aria-live="polite">
+      <!-- Animated scene that acts out the verse meaning -->
+      <div class="scene-stage" id="sceneStage"></div>
+      <div class="scene-desc" id="sceneDesc"></div>
+
       <div class="verse-card" id="verseCard">
         <div class="verse-badge" id="verseBadge">दोहा</div>
         <div class="verse-hi" id="verseHi"></div>
@@ -119,6 +126,7 @@
 
   <script src="data.js"></script>
   <script src="timings.js"></script>
+  <script src="scenes.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ warm, devotional aesthetic — glowing rays, rising embers, and a pulsing ॐ.
 
 ## Features
 
+- **Animated story scenes** — stylized figures (Hanuman, Ram, Sita, Lakshman, demons, the Sun, the ocean, the Sanjeevani mountain, Lanka in flames, sages, devas…) act out the meaning of each verse, changing as the recitation advances.
 - **Line-by-line animation** — every verse reveals its lines with a soft blur-up entrance.
 - **Synced audio playback** — load any recitation track and each line highlights (karaoke-style) in time with it.
 - **Auto-play recitation** — plays through all 46 verses (opening Dohas → 40 Chaupais → closing Doha).
@@ -17,7 +18,27 @@ warm, devotional aesthetic — glowing rays, rising embers, and a pulsing ॐ.
   - `→` / `←` — next / previous verse
   - `R` — restart
   - `L` — cycle language mode
+  - `T` — show / hide the verse text (focus on the animation)
 - **Responsive** and respects `prefers-reduced-motion`.
+
+## Animated scenes
+
+Above each verse, an illustrated stage shows characters acting out the meaning — for
+example:
+
+- **Sukshma/Vikat roop** → tiny Hanuman before Sita, then a fierce giant as Lanka burns
+- **Bhim roop asur sanhare** → Hanuman striking down demons
+- **Laye Sanjivan** → Hanuman carrying the Sanjeevani mountain while Lakshman revives
+- **Yug sahasra yojan par bhanu** → child Hanuman leaping to swallow the sun
+- **Jaladhi langhi** → Hanuman soaring across the ocean with Ram's ring
+- **Aapan tej / teenon lok** → Hanuman growing immense as the worlds tremble
+- **Ram duware tum rakhware** → Hanuman guarding Ram's gate
+- … and devotional tableaus (darshan, embrace, blessings, the heart finale) for the
+  praise verses.
+
+A short bilingual caption under the scene explains what's being depicted. Use the
+**पाठ · Text** toggle (or `T`) to hide the words and watch only the animation.
+The scene-to-verse mapping and all figures live in `scenes.js`.
 
 ## Synced audio playback
 
@@ -51,6 +72,7 @@ python3 -m http.server 8123
 | `styles.css` | Devotional theme + all animations + karaoke highlight |
 | `script.js`  | Animation engine, audio sync, calibrate tool, controls |
 | `data.js`    | The full Chalisa text (Devanagari + transliteration) |
+| `scenes.js`  | SVG character library + per-verse animated scene mapping |
 | `timings.js` | Per-verse audio start times (generated via Calibrate) |
 | `audio/`     | Place `chalisa.mp3` here to auto-load a recitation   |
 

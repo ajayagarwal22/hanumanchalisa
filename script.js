@@ -17,6 +17,9 @@
   const speedVal = document.getElementById("speedVal");
   const langToggle = document.getElementById("langToggle");
   const langLabel = langToggle.querySelector("[data-lang-label]");
+  const textToggle = document.getElementById("textToggle");
+  const sceneStage = document.getElementById("sceneStage");
+  const sceneDesc = document.getElementById("sceneDesc");
 
   // Audio elements
   const audio = document.getElementById("audio");
@@ -104,6 +107,9 @@
 
     verseBadge.textContent = BADGE[verse.type] || "";
     verseCard.classList.toggle("is-section", verse.type === "section");
+
+    // Animated figures that act out this verse's meaning.
+    if (window.Scenes) window.Scenes.render(sceneStage, sceneDesc, index);
 
     counter.textContent = `${index + 1} / ${total}`;
     if (!hasAudio) {
@@ -377,6 +383,7 @@
   });
 
   langToggle.addEventListener("click", () => setLang(langIdx + 1));
+  textToggle.addEventListener("click", () => document.body.classList.toggle("hide-text"));
 
   progressTrack.addEventListener("click", (ev) => {
     const rect = progressTrack.getBoundingClientRect();
@@ -455,6 +462,8 @@
         restartBtn.click(); break;
       case "l": case "L":
         setLang(langIdx + 1); break;
+      case "t": case "T":
+        document.body.classList.toggle("hide-text"); break;
     }
   });
 
