@@ -55,6 +55,7 @@
   let sessionTimings = null; // set by Calibrate "Use now"
   let wordData = { hi: null, en: null }; // per-container word spans + timing weights
   let lastProgress = 0;
+  let filmState = null; // { shots: NodeList, starts: [s], active: i } for cinematic verses
 
   let calibrating = false;
   let calIndex = 0;
@@ -165,6 +166,37 @@
     }
   }
 
+  // Start time of each cinematic shot (one per recited line of the verse).
+  function filmBoundaries(idx, n) {
+    const t = effectiveTimings();
+    const verseStart = t ? t[idx] : 0;
+    const verseEnd = t && idx < total - 1 ? t[idx + 1] : verseStart + 8;
+    const starts = [verseStart];
+    if (n <= 1) return starts;
+    const wt = (typeof TIMINGS_WORDS !== "undefined" && TIMINGS_WORDS[idx]) ? TIMINGS_WORDS[idx] : null;
+    const lines = CHALISA[idx].hi.split("\n");
+    let acc = 0;
+    for (let li = 0; li < n - 1; li++) {
+      acc += lines[li].split(/\s+/).filter(Boolean).length;
+      if (wt && wt[acc] != null) starts.push(wt[acc]);
+      else starts.push(verseStart + ((verseEnd - verseStart) * (li + 1)) / n); // even fallback
+    }
+    return starts;
+  }
+
+  function setFilmShot(tSec) {
+    if (!filmState) return;
+    let k = 0;
+    for (let i = 0; i < filmState.starts.length; i++) {
+      if (filmState.starts[i] <= tSec) k = i; else break;
+    }
+    if (k === filmState.active) return;
+    filmState.active = k;
+    for (let i = 0; i < filmState.shots.length; i++) {
+      filmState.shots[i].classList.toggle("active", i === k);
+    }
+  }
+
   function clearWordHighlight() {
     [wordData.hi, wordData.en].forEach((w) => {
       if (!w) return;
@@ -191,6 +223,16 @@
 
     // Animated figures that act out this verse's meaning.
     if (window.Scenes) window.Scenes.render(sceneStage, sceneDesc, index);
+
+    // Cinematic film verses: prepare shot list + per-line start times.
+    filmState = null;
+    if (window.Scenes && Scenes.FILM && Scenes.FILM[index]) {
+      const shots = sceneStage.querySelectorAll(".film-shot");
+      if (shots.length) {
+        filmState = { shots: shots, starts: filmBoundaries(index, shots.length), active: -1 };
+        setFilmShot(hasAudio && isFinite(audio.currentTime) ? audio.currentTime : filmState.starts[0]);
+      }
+    }
 
     counter.textContent = `${index + 1} / ${total}`;
     if (!hasAudio) {
@@ -327,6 +369,8 @@
     const end = index < total - 1 ? timings[index + 1] : (audio.duration || start + 4);
     const span = Math.max(0.001, end - start);
     highlightWords((t - start) / span, t);
+
+    if (filmState) setFilmShot(t);
   }
 
   function loadAudioSrc(src, label) {

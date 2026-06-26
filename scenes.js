@@ -430,7 +430,39 @@
 
   function typeFor(index) { return MAP[index] || "darshan"; }
 
+  // ---------- Photoreal cinematic "film" for the opening Dohas ----------
+  // verse index -> ordered list of shot images (one per recited line).
+  // each shot: { src, pos } where pos is the object-position focal point so the
+  // subject (feet / face) stays framed despite cover-crop + Ken Burns.
+  const S1 = { src: "assets/film/shot1.png", pos: "center 70%" };
+  const S2 = { src: "assets/film/shot2.png", pos: "center 24%" };
+  const S3 = { src: "assets/film/shot3.png", pos: "center 52%" };
+  const S4 = { src: "assets/film/shot4.png", pos: "center 20%" };
+  const FILM = {
+    0: [S1],
+    1: [S1, S2],
+    2: [S3, S4],
+  };
+
+  function buildFilm(index) {
+    const shots = FILM[index];
+    let imgs = "";
+    shots.forEach(function (s, i) {
+      imgs += '<img class="film-shot kb' + (i % 2) + (i === 0 ? " active" : "") +
+        '" data-shot="' + i + '" alt="" style="object-position:' + s.pos + '" src="' + s.src + '">';
+    });
+    return (
+      '<div class="scene scene-film">' +
+      '<div class="film-frame">' + imgs + "</div>" +
+      '<div class="godrays"></div><div class="dust"></div>' +
+      '<div class="film-vignette"></div>' +
+      '<div class="letterbox lb-top"></div><div class="letterbox lb-bottom"></div>' +
+      "</div>"
+    );
+  }
+
   function buildHTML(index) {
+    if (FILM[index]) return buildFilm(index);
     const type = typeFor(index);
     const builder = B[type] || B.darshan;
     let parts;
@@ -451,5 +483,5 @@
     if (descEl) descEl.textContent = descFor(index);
   }
 
-  window.Scenes = { buildHTML: buildHTML, descFor: descFor, render: render, typeFor: typeFor, MAP: MAP };
+  window.Scenes = { buildHTML: buildHTML, descFor: descFor, render: render, typeFor: typeFor, MAP: MAP, FILM: FILM };
 })();
