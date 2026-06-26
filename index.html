@@ -31,18 +31,22 @@
       </button>
     </header>
 
-    <!-- Verse display -->
+    <!-- Verse display: scene on one side, verse text on the other -->
     <section class="verse-wrap" aria-live="polite">
       <!-- Animated scene that acts out the verse meaning -->
-      <div class="scene-stage" id="sceneStage"></div>
-      <div class="scene-desc" id="sceneDesc"></div>
-
-      <div class="verse-card" id="verseCard">
-        <div class="verse-badge" id="verseBadge">दोहा</div>
-        <div class="verse-hi" id="verseHi"></div>
-        <div class="verse-en" id="verseEn"></div>
+      <div class="scene-col">
+        <div class="scene-stage" id="sceneStage"></div>
+        <div class="scene-desc" id="sceneDesc"></div>
       </div>
-      <div class="counter" id="counter">1 / 1</div>
+
+      <div class="text-col">
+        <div class="verse-card" id="verseCard">
+          <div class="verse-badge" id="verseBadge">दोहा</div>
+          <div class="verse-hi" id="verseHi"></div>
+          <div class="verse-en" id="verseEn"></div>
+        </div>
+        <div class="counter" id="counter">1 / 1</div>
+      </div>
     </section>
 
     <!-- Audio bar -->
