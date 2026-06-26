@@ -444,12 +444,19 @@
     2: [S3, S4],
   };
 
+  // Fallback host for binary assets: raw.githack.com (the share-link CDN)
+  // refuses large media, so if the same-origin path fails we load from raw GitHub.
+  const RAW_BASE = "https://raw.githubusercontent.com/ajayagarwal22/hanumanchalisa/cursor/hanuman-chalisa-animation-4603/";
+
   function buildFilm(index) {
     const shots = FILM[index];
     let imgs = "";
     shots.forEach(function (s, i) {
+      const fallback = RAW_BASE + s.src;
       imgs += '<img class="film-shot kb' + (i % 2) + (i === 0 ? " active" : "") +
-        '" data-shot="' + i + '" alt="" style="object-position:' + s.pos + '" src="' + s.src + '">';
+        '" data-shot="' + i + '" alt="" style="object-position:' + s.pos + '"' +
+        ' onerror="this.onerror=null;this.src=\'' + fallback + '\'"' +
+        ' src="' + s.src + '">';
     });
     return (
       '<div class="scene scene-film">' +
