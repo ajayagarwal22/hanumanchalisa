@@ -6,7 +6,7 @@ warm, devotional aesthetic — glowing rays, rising embers, and a pulsing ॐ.
 
 ## Features
 
-- **Animated story scenes** — stylized figures (Hanuman, Ram, Sita, Lakshman, demons, the Sun, the ocean, the Sanjeevani mountain, Lanka in flames, sages, devas…) act out the meaning of each verse, changing as the recitation advances.
+- **Cinematic animated scenes** — shaded figures (Hanuman, Ram, Sita, Lakshman, demons, the Sun, the ocean, the Sanjeevani mountain, Lanka in flames, sages, devas…) act out each verse over layered parallax environments (sky, clouds, moon, stars, sea, fire, cosmos) with a slow camera push-in, glow/bloom, motion trails and particles. Scenes change as the recitation advances.
 - **Line-by-line animation** — every verse reveals its lines with a soft blur-up entrance.
 - **Synced audio playback** — the bundled recitation is matched to the text with **forced alignment**, so each **word** highlights (karaoke-style) exactly in time; spoken words glow, sung words stay lit, upcoming words dim.
 - **Auto-play recitation** — plays through all 46 verses (opening Dohas → 40 Chaupais → closing Doha).
