@@ -56,24 +56,28 @@ The backend works **fully offline** with zero credentials. Optional features:
 cd backend
 pip install -r requirements.txt          # add --break-system-packages on Debian/Ubuntu
 cp .env.example .env                      # optional: add OPENAI_API_KEY
-python -m uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 7700
 ```
 
-API docs: <http://127.0.0.1:8000/docs>
+> Ports avoid the commonly-used 3000/5000/6000/8000/9000 ranges. Override the
+> backend port with `--port <n>` (and update `frontend/vite.config.ts` proxy to
+> match), or `PORT=<n> ./run.sh`.
+
+API docs: <http://127.0.0.1:7700/docs>
 
 ### 2. Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev        # dev server on http://127.0.0.1:5173 (proxies /api -> :8000)
+npm run dev        # dev server on http://127.0.0.1:7701 (proxies /api -> :7700)
 ```
 
 Or build it once and let the backend serve it as a single app:
 
 ```bash
 cd frontend && npm run build
-# then open http://127.0.0.1:8000  (uvicorn serves frontend/dist)
+# then open http://127.0.0.1:7700  (uvicorn serves frontend/dist)
 ```
 
 ---

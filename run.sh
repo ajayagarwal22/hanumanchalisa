@@ -9,5 +9,7 @@ pip install -r backend/requirements.txt
 echo "==> Building frontend"
 ( cd frontend && npm install && npm run build )
 
-echo "==> Starting AutoApply on http://127.0.0.1:8000"
-cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Port chosen to avoid the commonly-used 3000/5000/6000/8000/9000 ranges.
+PORT="${PORT:-7700}"
+echo "==> Starting AutoApply on http://127.0.0.1:${PORT}"
+cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
