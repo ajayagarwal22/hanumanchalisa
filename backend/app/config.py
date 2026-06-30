@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     # candidate's behalf. The review/approval payload is produced instead.
     enable_browser_submit: bool = False
 
+    # --- Browser auto-fill (Playwright) ---
+    # Auto-fill opens the application (Easy Apply or external site), fills every
+    # field it can from your profile + saved answers, and STOPS before submit so
+    # you review and submit yourself. Requires a local display (run natively via
+    # ./run.sh, not headless Docker) and a one-time LinkedIn login.
+    browser_user_data_dir: str = str(DATA_DIR / "browser_profile")
+    browser_headless: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

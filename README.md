@@ -19,6 +19,10 @@ will:
    (or edit) it once; on approval it's saved to an **answer memory** and
    auto-filled next time — even when the question is slightly reworded (fuzzy
    matched). Manage saved answers in the **Saved Answers** tab.
+8. **Auto-fill the real form in a browser.** One click opens the actual
+   application — LinkedIn *Easy Apply* or the **external** company/ATS site —
+   and fills every field it can from your profile, saved answers and the tailored
+   cover letter, then **stops before submit** so you review and submit yourself.
 
 > **Human-in-the-loop by design.** Nothing is ever submitted automatically.
 > See [Responsible use](#responsible-use--linkedin-terms).
@@ -44,7 +48,8 @@ The backend works **fully offline** with zero credentials. Optional features:
 | ---------------------- | --------------------------------- | ------------------------------ |
 | Live LinkedIn search   | outbound network                  | representative sample postings |
 | LLM cover letters      | `OPENAI_API_KEY`                  | tailored template generator    |
-| Automated submission   | `ENABLE_BROWSER_SUBMIT` + Playwright | approval-gated manual finish |
+| Browser auto-fill      | Playwright + a display (native run)   | manual fill via apply link     |
+| Automated submission   | `ENABLE_BROWSER_SUBMIT` + Playwright | approval-gated manual finish   |
 
 ---
 
@@ -143,6 +148,40 @@ cd frontend && npm run build
   questions still resolve to the same saved answer.
 - The **Saved Answers** tab lists everything stored; you can pre-seed, edit, or
   forget answers. Endpoints: `GET/POST/DELETE /api/memory`.
+
+### Browser auto-fill (Easy Apply + external sites)
+
+In the review dialog, **Auto-fill in your browser** drives a real browser to
+complete the application for you — without ever submitting it.
+
+Setup (once), on the machine running the app:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Run the app **natively** (`./run.sh`) rather than headless Docker, so a browser
+window can open. Then in the review dialog:
+
+1. **Connect LinkedIn** — a browser window opens; log in once. The session is
+   saved locally in `backend/data/browser_profile` (your password is never
+   stored by the app).
+2. **Auto-fill this application** — the app opens the job and:
+   - **Easy Apply:** clicks through each step, filling text/select/radio fields
+     from your profile, saved answers and the cover letter, stopping at the
+     final *Submit application* screen for you to review and submit.
+   - **External:** follows the "Apply" link to the company/ATS site and fills
+     the matching fields there.
+3. A report shows what was filled and which questions still **need your input**.
+   You review everything and click submit yourself.
+
+Endpoints: `GET /api/automation/status`, `POST /api/automation/connect`,
+`POST /api/automation/autofill`, `POST /api/automation/close`.
+
+> Note: this auto-fills only — it never submits. Selectors target LinkedIn's
+> current Easy Apply DOM and common ATS field labels; if a site uses an unusual
+> layout, unmatched fields are reported for you to complete manually.
 
 ---
 

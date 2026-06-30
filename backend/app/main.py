@@ -10,7 +10,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
-from .routers import applications, jobs, memory, profile
+from .routers import applications, automation, jobs, memory, profile
+from .services import browser_autofill
 
 settings = get_settings()
 
@@ -37,6 +38,7 @@ app.include_router(profile.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
 app.include_router(memory.router)
+app.include_router(automation.router)
 
 
 @app.get("/api/health")
@@ -46,6 +48,7 @@ def health() -> dict:
         "app": settings.app_name,
         "llm_enabled": bool(settings.openai_api_key),
         "browser_submit_enabled": settings.enable_browser_submit,
+        "autofill_available": browser_autofill.playwright_available(),
     }
 
 

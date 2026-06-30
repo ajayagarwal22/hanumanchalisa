@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api } from "./api";
+import { useEffect, useState } from "react";
+import { api, type AutofillReport } from "./api";
 import type { Application, FormField } from "./types";
 
 export function ReviewModal({
@@ -22,6 +22,44 @@ export function ReviewModal({
   const [newQType, setNewQType] = useState("text");
   const [newQOptions, setNewQOptions] = useState("");
   const [addingQ, setAddingQ] = useState(false);
+
+  const [pwAvailable, setPwAvailable] = useState<boolean | null>(null);
+  const [autofilling, setAutofilling] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [report, setReport] = useState<AutofillReport | null>(null);
+
+  useEffect(() => {
+    api
+      .automationStatus()
+      .then((s) => setPwAvailable(s.playwright_available))
+      .catch(() => setPwAvailable(false));
+  }, []);
+
+  const connect = async () => {
+    setConnecting(true);
+    try {
+      const r = await api.automationConnect();
+      notify(r.message, !r.ok);
+    } catch (e) {
+      notify((e as Error).message, true);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const autofill = async () => {
+    setAutofilling(true);
+    setReport(null);
+    try {
+      const r = await api.automationAutofill(app.job.id, cover);
+      setReport(r);
+      notify(r.message, !r.ok);
+    } catch (e) {
+      notify((e as Error).message, true);
+    } finally {
+      setAutofilling(false);
+    }
+  };
 
   const decided = app.status === "submitted" || app.status === "rejected";
 
@@ -203,6 +241,85 @@ export function ReviewModal({
           {browserSubmit
             ? " Automated submission is enabled."
             : " The reviewed answers + cover letter are finalized for you to submit in your own logged-in LinkedIn session (respecting LinkedIn's terms)."}
+        </div>
+
+        <div className="autofill">
+          <strong style={{ fontSize: 14 }}>Auto-fill in your browser</strong>
+          <p className="muted" style={{ fontSize: 12, margin: "4px 0 10px" }}>
+            Opens the real application (LinkedIn Easy Apply or the external site),
+            fills every field it can from your profile, saved answers and this
+            cover letter, then stops so <strong>you</strong> review and submit. It
+            never submits for you.
+          </p>
+          {pwAvailable === false && (
+            <div className="notice" style={{ marginTop: 0 }}>
+              Browser auto-fill needs Playwright on the machine running the app:
+              <code> pip install playwright &amp;&amp; playwright install chromium</code>.
+              Run natively (<code>./run.sh</code>), not headless Docker.
+            </div>
+          )}
+          <div className="btn-row">
+            <button className="btn" onClick={connect} disabled={connecting || !pwAvailable}>
+              {connecting ? "Opening…" : "1 · Connect LinkedIn"}
+            </button>
+            <button
+              className="btn primary"
+              onClick={autofill}
+              disabled={autofilling || !pwAvailable}
+            >
+              {autofilling ? (
+                <>
+                  <span className="spinner" /> Filling…
+                </>
+              ) : (
+                "2 · Auto-fill this application"
+              )}
+            </button>
+            {report && (
+              <button className="btn ghost" onClick={() => api.automationClose()}>
+                Close browser
+              </button>
+            )}
+          </div>
+
+          {report && (
+            <div className="report">
+              <div>
+                <strong>{report.filled?.length ?? 0}</strong> fields filled
+                {report.mode ? ` · ${report.mode.replace("_", " ")}` : ""}
+                {report.ready_to_submit ? " · ready for your review & submit" : ""}
+              </div>
+              {report.external_url && (
+                <div className="muted" style={{ fontSize: 12 }}>
+                  External form: {report.external_url}
+                </div>
+              )}
+              {!!report.filled?.length && (
+                <details>
+                  <summary>Filled fields</summary>
+                  <ul className="reasons">
+                    {report.filled.map((f, i) => (
+                      <li key={i}>
+                        {f.label}: <span className="muted">{f.value}</span> ({f.source})
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              {!!report.unmatched?.length && (
+                <details open>
+                  <summary>
+                    Needs your input in the browser ({report.unmatched.length})
+                  </summary>
+                  <ul className="reasons">
+                    {report.unmatched.map((q, i) => (
+                      <li key={i}>{q}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="btn-row" style={{ marginTop: 16 }}>

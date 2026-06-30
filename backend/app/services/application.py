@@ -167,9 +167,10 @@ async def submit_application(app: Application) -> Application:
 
     app.status = ApplicationStatus.submitted
     app.submission_log.append(
-        "Approved. Automated submission is disabled (ENABLE_BROWSER_SUBMIT=false) "
-        "to respect LinkedIn's User Agreement. Open the job and paste the "
-        "reviewed answers/cover letter to finish in your logged-in session."
+        "Approved. Use 'Auto-fill in your browser' to open the application "
+        "(Easy Apply or external site) and fill every field from your profile, "
+        "saved answers and cover letter — then review and submit it yourself. "
+        "(Automated submission stays off to respect LinkedIn's User Agreement.)"
     )
     app.submission_log.append(f"Apply link: {app.job.url}")
     return app

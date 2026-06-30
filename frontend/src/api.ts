@@ -122,4 +122,37 @@ export const api = {
       headers: JSON_HEADERS,
       body: JSON.stringify({ key }),
     }),
+
+  automationStatus: () =>
+    req<{ playwright_available: boolean; browser_open: boolean }>(
+      "/api/automation/status"
+    ),
+
+  automationConnect: () =>
+    req<{ ok: boolean; logged_in: boolean; message: string }>(
+      "/api/automation/connect",
+      { method: "POST" }
+    ),
+
+  automationAutofill: (job_id: string, cover_letter: string) =>
+    req<AutofillReport>("/api/automation/autofill", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ job_id, cover_letter }),
+    }),
+
+  automationClose: () =>
+    req<{ ok: boolean }>("/api/automation/close", { method: "POST" }),
 };
+
+export interface AutofillReport {
+  ok: boolean;
+  logged_in?: boolean;
+  mode?: string | null;
+  filled?: { label: string; value: string; source: string }[];
+  unmatched?: string[];
+  skipped_prefilled?: string[];
+  ready_to_submit?: boolean;
+  external_url?: string | null;
+  message: string;
+}
