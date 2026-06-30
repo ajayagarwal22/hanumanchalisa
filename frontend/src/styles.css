@@ -415,6 +415,53 @@ textarea {
   margin-left: 6px;
 }
 
+.flag.mem {
+  color: var(--brand);
+}
+
+.addq {
+  border: 1px dashed var(--border);
+  background: var(--bg-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 18px;
+}
+
+.addq-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.addq-row input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.mem-item {
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.mem-item .q {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.mem-item .a {
+  color: var(--brand);
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.mem-item .uses {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .muted {
   color: var(--muted);
 }

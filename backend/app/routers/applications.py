@@ -5,12 +5,14 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from ..models import (
+    AddQuestionRequest,
     Application,
     ApplicationStatus,
     ApprovalRequest,
     BuildApplicationRequest,
     CoverLetterRequest,
     CoverLetterResponse,
+    FormField,
 )
 from ..services import application as app_service
 from ..services import cover_letter as cover_service
@@ -49,7 +51,36 @@ def build(req: BuildApplicationRequest) -> Application:
     if req.generate_cover_letter:
         letter, _ = cover_service.generate_cover_letter(profile, scored, tone=req.tone)
 
-    app = app_service.build_application(profile, scored, letter)
+    app = app_service.build_application(profile, scored, letter, store=store)
+    return store.put_application(app)
+
+
+@router.post("/{app_id}/questions", response_model=Application)
+def add_question(app_id: str, req: AddQuestionRequest) -> Application:
+    """Add a custom application question. If a matching answer is already in
+    memory it is auto-filled; otherwise it's left blank for you to answer."""
+    store = get_store()
+    app = store.get_application(app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if any(f.label.strip().lower() == req.label.strip().lower() for f in app.fields):
+        raise HTTPException(409, "That question is already on this application.")
+
+    slug = "q_" + str(abs(hash(req.label)) % 10_000_000)
+    field = FormField(
+        name=slug,
+        label=req.label.strip(),
+        type=req.type,
+        options=req.options,
+        required=req.required,
+        confidence=0.0,
+    )
+    app_service.apply_memory_to_fields([field], store)
+    # insert before the cover letter field for nicer ordering
+    idx = next((i for i, f in enumerate(app.fields) if f.name == "cover_letter"), len(app.fields))
+    app.fields.insert(idx, field)
+    note = "auto-filled from memory" if field.from_memory else "added — awaiting your answer"
+    app.submission_log.append(f"Added question '{field.label}' ({note}).")
     return store.put_application(app)
 
 
@@ -98,5 +129,13 @@ async def approve(app_id: str, req: ApprovalRequest) -> Application:
 
     app.status = ApplicationStatus.approved
     app.submission_log.append("Candidate approved the application.")
+
+    # Persist answers so the same questions auto-fill next time.
+    remembered = app_service.remember_application_answers(app, store)
+    if remembered:
+        app.submission_log.append(
+            f"Saved {remembered} answer(s) to memory for future auto-fill."
+        )
+
     app = await app_service.submit_application(app)
     return store.put_application(app)

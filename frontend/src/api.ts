@@ -1,4 +1,5 @@
 import type {
+  AnswerRecord,
   Application,
   CandidateProfile,
   FormField,
@@ -92,5 +93,33 @@ export const api = {
         edited_fields,
         edited_cover_letter,
       }),
+    }),
+
+  addQuestion: (
+    app_id: string,
+    label: string,
+    type: string,
+    options: string[]
+  ) =>
+    req<Application>(`/api/applications/${app_id}/questions`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ label, type, options, required: true }),
+    }),
+
+  listMemory: () => req<AnswerRecord[]>("/api/memory"),
+
+  upsertMemory: (question: string, value: unknown, type = "text", options: string[] = []) =>
+    req<AnswerRecord>("/api/memory", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ question, value, type, options }),
+    }),
+
+  forgetMemory: (key: string) =>
+    req<{ removed: boolean }>("/api/memory", {
+      method: "DELETE",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ key }),
     }),
 };

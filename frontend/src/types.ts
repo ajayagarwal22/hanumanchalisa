@@ -48,6 +48,17 @@ export interface FormField {
   options: string[];
   required: boolean;
   confidence: number;
+  from_memory: boolean;
+}
+
+export interface AnswerRecord {
+  key: string;
+  question: string;
+  type: string;
+  options: string[];
+  value: unknown;
+  updated_at: string;
+  uses: number;
 }
 
 export type ApplicationStatus =

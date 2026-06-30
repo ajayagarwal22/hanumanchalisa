@@ -18,11 +18,44 @@ export function ReviewModal({
   const [fields, setFields] = useState<FormField[]>(app.fields);
   const [cover, setCover] = useState(app.cover_letter ?? "");
   const [busy, setBusy] = useState(false);
+  const [newQ, setNewQ] = useState("");
+  const [newQType, setNewQType] = useState("text");
+  const [newQOptions, setNewQOptions] = useState("");
+  const [addingQ, setAddingQ] = useState(false);
 
   const decided = app.status === "submitted" || app.status === "rejected";
 
   const setField = (name: string, value: unknown) =>
-    setFields((fs) => fs.map((f) => (f.name === name ? { ...f, value } : f)));
+    setFields((fs) =>
+      fs.map((f) => (f.name === name ? { ...f, value, from_memory: false } : f))
+    );
+
+  const addQuestion = async () => {
+    if (!newQ.trim()) return;
+    setAddingQ(true);
+    try {
+      const opts =
+        newQType === "select"
+          ? newQOptions.split(",").map((o) => o.trim()).filter(Boolean)
+          : [];
+      const updated = await api.addQuestion(app.id, newQ.trim(), newQType, opts);
+      setFields(updated.fields);
+      const added = updated.fields.find(
+        (f) => f.label.toLowerCase() === newQ.trim().toLowerCase()
+      );
+      notify(
+        added?.from_memory
+          ? "Question added and auto-filled from your saved answers."
+          : "Question added — provide your answer below."
+      );
+      setNewQ("");
+      setNewQOptions("");
+    } catch (e) {
+      notify((e as Error).message, true);
+    } finally {
+      setAddingQ(false);
+    }
+  };
 
   const missing = fields.filter(
     (f) => f.required && !(f.value && String(f.value).trim())
@@ -83,7 +116,10 @@ export function ReviewModal({
                 <label className="field">
                   {f.label}
                   {f.required && <span style={{ color: "var(--bad)" }}> *</span>}
-                  {lowConf && <span className="flag">⚠ please verify</span>}
+                  {f.from_memory && <span className="flag mem">↺ from memory</span>}
+                  {lowConf && !f.from_memory && (
+                    <span className="flag">⚠ please verify</span>
+                  )}
                 </label>
                 {f.type === "select" ? (
                   <select
@@ -111,6 +147,44 @@ export function ReviewModal({
             );
           })}
 
+        {!decided && (
+          <div className="addq">
+            <strong style={{ fontSize: 14 }}>Encountered a new question?</strong>
+            <p className="muted" style={{ fontSize: 12, margin: "4px 0 10px" }}>
+              Paste it here. If you've answered something similar before it
+              auto-fills; otherwise answer it once and it's saved for next time.
+            </p>
+            <div className="addq-row">
+              <input
+                placeholder="e.g. What is your expected salary?"
+                value={newQ}
+                onChange={(e) => setNewQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addQuestion()}
+              />
+              <select
+                style={{ width: 130 }}
+                value={newQType}
+                onChange={(e) => setNewQType(e.target.value)}
+              >
+                <option value="text">Short text</option>
+                <option value="textarea">Long text</option>
+                <option value="select">Choice</option>
+              </select>
+              <button className="btn" onClick={addQuestion} disabled={addingQ}>
+                {addingQ ? "Adding…" : "Add"}
+              </button>
+            </div>
+            {newQType === "select" && (
+              <input
+                style={{ marginTop: 8 }}
+                placeholder="Comma-separated options, e.g. Yes, No"
+                value={newQOptions}
+                onChange={(e) => setNewQOptions(e.target.value)}
+              />
+            )}
+          </div>
+        )}
+
         <h3 style={{ marginTop: 18 }}>Tailored cover letter</h3>
         <textarea
           disabled={decided}
@@ -124,10 +198,11 @@ export function ReviewModal({
         )}
 
         <div className="notice">
-          Nothing is sent to LinkedIn without your approval.
+          Nothing is sent to LinkedIn without your approval. On approval your
+          question answers are saved to memory and auto-filled next time.
           {browserSubmit
             ? " Automated submission is enabled."
-            : " On approval, the reviewed answers + cover letter are finalized for you to submit in your own logged-in LinkedIn session (respecting LinkedIn's terms)."}
+            : " The reviewed answers + cover letter are finalized for you to submit in your own logged-in LinkedIn session (respecting LinkedIn's terms)."}
         </div>
 
         <div className="btn-row" style={{ marginTop: 16 }}>

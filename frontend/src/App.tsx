@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import type {
+  AnswerRecord,
   Application,
   CandidateProfile,
   FormField,
@@ -8,12 +9,13 @@ import type {
 } from "./types";
 import { ReviewModal } from "./ReviewModal";
 
-type Step = "profile" | "jobs" | "applications";
+type Step = "profile" | "jobs" | "applications" | "memory";
 
 const STEPS: { id: Step; title: string; sub: string }[] = [
   { id: "profile", title: "Profile & Resume", sub: "Upload + links" },
   { id: "jobs", title: "Find Jobs", sub: "Search & match" },
   { id: "applications", title: "Applications", sub: "Review & approve" },
+  { id: "memory", title: "Saved Answers", sub: "Reused auto-fill" },
 ];
 
 export default function App() {
@@ -101,6 +103,8 @@ export default function App() {
       {step === "applications" && (
         <ApplicationsStep apps={apps} onOpen={setReviewApp} onRefresh={refreshApps} />
       )}
+
+      {step === "memory" && <MemoryStep notify={notify} />}
 
       {reviewApp && (
         <ReviewModal
@@ -529,6 +533,129 @@ function ApplicationsStep({
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ----------------------------- Memory step ----------------------------- */
+
+function MemoryStep({ notify }: { notify: (m: string, e?: boolean) => void }) {
+  const [items, setItems] = useState<AnswerRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [v, setV] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    api
+      .listMemory()
+      .then(setItems)
+      .catch((e) => notify((e as Error).message, true))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const add = async () => {
+    if (!q.trim()) return;
+    try {
+      await api.upsertMemory(q.trim(), v);
+      notify("Saved answer.");
+      setQ("");
+      setV("");
+      load();
+    } catch (e) {
+      notify((e as Error).message, true);
+    }
+  };
+
+  const forget = async (key: string) => {
+    try {
+      await api.forgetMemory(key);
+      load();
+    } catch (e) {
+      notify((e as Error).message, true);
+    }
+  };
+
+  const edit = async (rec: AnswerRecord, value: string) => {
+    try {
+      await api.upsertMemory(rec.question, value, rec.type, rec.options);
+      setItems((xs) =>
+        xs.map((x) => (x.key === rec.key ? { ...x, value } : x))
+      );
+    } catch (e) {
+      notify((e as Error).message, true);
+    }
+  };
+
+  return (
+    <div className="panel">
+      <h2>Saved answers</h2>
+      <p className="sub">
+        Answers you approve are stored here and auto-filled on future
+        applications (matched even when a question is slightly reworded). Edit or
+        remove any of them.
+      </p>
+
+      <div className="addq" style={{ marginTop: 0 }}>
+        <strong style={{ fontSize: 14 }}>Add an answer ahead of time</strong>
+        <div className="addq-row" style={{ marginTop: 10 }}>
+          <input
+            placeholder="Question, e.g. What are your salary expectations?"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <input
+            placeholder="Your answer"
+            value={v}
+            onChange={(e) => setV(e.target.value)}
+            style={{ flex: 1, minWidth: 160 }}
+          />
+          <button className="btn" onClick={add}>
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        {loading && <div className="empty">Loading…</div>}
+        {!loading && items.length === 0 && (
+          <div className="empty">
+            No saved answers yet. Approve an application with custom questions and
+            they'll appear here.
+          </div>
+        )}
+        {items.map((rec) => (
+          <div className="mem-item" key={rec.key}>
+            <div className="q">{rec.question}</div>
+            <input
+              className="a"
+              style={{ marginTop: 6 }}
+              defaultValue={String(rec.value ?? "")}
+              onBlur={(e) => edit(rec, e.target.value)}
+            />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 8,
+              }}
+            >
+              <span className="uses">
+                used {rec.uses} time{rec.uses === 1 ? "" : "s"}
+              </span>
+              <button className="btn ghost" onClick={() => forget(rec.key)}>
+                Forget
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

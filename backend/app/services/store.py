@@ -13,7 +13,8 @@ import threading
 from pathlib import Path
 
 from ..config import DATA_DIR
-from ..models import Application, CandidateProfile, JobPosting
+from ..models import AnswerRecord, Application, CandidateProfile, JobPosting
+from . import memory
 
 _STATE_FILE = DATA_DIR / "state.json"
 
@@ -24,6 +25,7 @@ class Store:
         self.profile: CandidateProfile = CandidateProfile()
         self.jobs: dict[str, JobPosting] = {}
         self.applications: dict[str, Application] = {}
+        self.answers: dict[str, AnswerRecord] = {}
         self._load()
 
     # ---- persistence -------------------------------------------------
@@ -40,6 +42,8 @@ class Store:
             self.jobs[jid] = JobPosting.model_validate(j)
         for aid, a in data.get("applications", {}).items():
             self.applications[aid] = Application.model_validate(a)
+        for k, rec in data.get("answers", {}).items():
+            self.answers[k] = AnswerRecord.model_validate(rec)
 
     def _save(self) -> None:
         payload = {
@@ -48,6 +52,7 @@ class Store:
             "applications": {
                 k: v.model_dump(mode="json") for k, v in self.applications.items()
             },
+            "answers": {k: v.model_dump(mode="json") for k, v in self.answers.items()},
         }
         tmp = _STATE_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(payload, indent=2, default=str), "utf-8")
@@ -87,6 +92,54 @@ class Store:
         return sorted(
             self.applications.values(), key=lambda a: a.created_at, reverse=True
         )
+
+    # ---- answer memory ----------------------------------------------
+    def lookup_answer(self, question: str) -> AnswerRecord | None:
+        key = memory.best_match(question, list(self.answers.keys()))
+        return self.answers.get(key) if key else None
+
+    def remember_answer(
+        self, question: str, value, type_: str = "text", options: list[str] | None = None
+    ) -> AnswerRecord:
+        with self._lock:
+            from datetime import datetime, timezone
+
+            norm = memory.normalize_question(question)
+            existing = self.answers.get(norm) or (
+                self.answers.get(memory.best_match(question, list(self.answers.keys())) or "")
+            )
+            if existing:
+                existing.value = value
+                existing.question = question
+                existing.type = type_
+                if options:
+                    existing.options = options
+                existing.uses += 1
+                existing.updated_at = datetime.now(timezone.utc)
+                rec = existing
+            else:
+                rec = AnswerRecord(
+                    key=norm,
+                    question=question,
+                    type=type_,
+                    options=options or [],
+                    value=value,
+                )
+                self.answers[norm] = rec
+            self._save()
+            return rec
+
+    def list_answers(self) -> list[AnswerRecord]:
+        return sorted(self.answers.values(), key=lambda r: r.updated_at, reverse=True)
+
+    def forget_answer(self, key: str) -> bool:
+        with self._lock:
+            # accept either the stored key or a raw question
+            norm = key if key in self.answers else memory.normalize_question(key)
+            removed = self.answers.pop(norm, None) is not None
+            if removed:
+                self._save()
+            return removed
 
 
 _store: Store | None = None

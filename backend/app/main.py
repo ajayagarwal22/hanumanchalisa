@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
-from .routers import applications, jobs, profile
+from .routers import applications, jobs, memory, profile
 
 settings = get_settings()
 
@@ -36,6 +36,7 @@ app.add_middleware(
 app.include_router(profile.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
+app.include_router(memory.router)
 
 
 @app.get("/api/health")

@@ -15,6 +15,10 @@ will:
    low-confidence fields flagged for review.
 6. **Ask for your approval before anything is submitted** — you review every
    field and the cover letter, edit as needed, then explicitly approve.
+7. **Remember your answers.** When a new screening question appears you answer
+   (or edit) it once; on approval it's saved to an **answer memory** and
+   auto-filled next time — even when the question is slightly reworded (fuzzy
+   matched). Manage saved answers in the **Saved Answers** tab.
 
 > **Human-in-the-loop by design.** Nothing is ever submitted automatically.
 > See [Responsible use](#responsible-use--linkedin-terms).
@@ -85,7 +89,20 @@ cd frontend && npm run build
 4. **Review & approve** — edit any field or the cover letter, fill the questions
    that need your judgment (work authorization, sponsorship, …), then
    **Approve & submit** or **Reject**. Required fields are enforced before
-   approval.
+   approval. Hit a question the app didn't anticipate? Add it via *"Encountered
+   a new question?"*; it auto-fills if you've answered something similar before,
+   otherwise it's saved once you approve.
+
+### Answer memory
+
+- Approving an application stores every question answer (questions only — not
+  personal profile fields or the job-specific cover letter).
+- Future applications auto-fill matching questions, flagged with a **↺ from
+  memory** badge so you can still verify them.
+- Matching is exact-first, then token-similarity fuzzy matching, so reworded
+  questions still resolve to the same saved answer.
+- The **Saved Answers** tab lists everything stored; you can pre-seed, edit, or
+  forget answers. Endpoints: `GET/POST/DELETE /api/memory`.
 
 ---
 

@@ -25,6 +25,7 @@ from ..models import (
     JobPosting,
     ScoredJob,
 )
+from . import memory
 
 
 def build_form_fields(profile: CandidateProfile, job: JobPosting) -> list[FormField]:
@@ -75,11 +76,48 @@ def build_form_fields(profile: CandidateProfile, job: JobPosting) -> list[FormFi
     return fields
 
 
+def apply_memory_to_fields(fields: list[FormField], store) -> list[FormField]:
+    """Auto-fill any question field (non-profile) from saved answer memory."""
+    for f in fields:
+        if f.name in memory.PROFILE_FIELD_NAMES:
+            continue
+        if f.value not in (None, ""):
+            continue
+        rec = store.lookup_answer(f.label)
+        if rec is not None and rec.value not in (None, ""):
+            f.value = rec.value
+            f.from_memory = True
+            f.confidence = 0.95
+    return fields
+
+
+def remember_application_answers(app: Application, store) -> int:
+    """Persist answers to question fields so they auto-fill next time.
+
+    Returns the number of answers stored/updated."""
+    stored = 0
+    for f in app.fields:
+        if f.name in memory.PROFILE_FIELD_NAMES:
+            continue
+        if f.value in (None, "") or not str(f.value).strip():
+            continue
+        store.remember_answer(
+            question=f.label, value=f.value, type_=f.type, options=f.options
+        )
+        stored += 1
+    return stored
+
+
 def build_application(
-    profile: CandidateProfile, scored: ScoredJob, cover_letter: str | None
+    profile: CandidateProfile,
+    scored: ScoredJob,
+    cover_letter: str | None,
+    store=None,
 ) -> Application:
     job = scored.job
     fields = build_form_fields(profile, job)
+    if store is not None:
+        apply_memory_to_fields(fields, store)
     if cover_letter:
         for f in fields:
             if f.name == "cover_letter":

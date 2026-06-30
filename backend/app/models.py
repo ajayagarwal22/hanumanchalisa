@@ -88,6 +88,19 @@ class FormField(BaseModel):
     options: list[str] = Field(default_factory=list)
     required: bool = False
     confidence: float = 1.0  # 0-1; low confidence flags fields needing review
+    from_memory: bool = False  # answer was auto-filled from saved memory
+
+
+class AnswerRecord(BaseModel):
+    """A remembered answer to an application question, reused across jobs."""
+
+    key: str  # normalized question text used for matching
+    question: str  # the original question / field label
+    type: str = "text"
+    options: list[str] = Field(default_factory=list)
+    value: Any = None
+    updated_at: datetime = Field(default_factory=_now)
+    uses: int = 1
 
 
 class ApplicationStatus(str, Enum):
@@ -121,3 +134,26 @@ class ApprovalRequest(BaseModel):
     approve: bool
     edited_fields: list[FormField] | None = None
     edited_cover_letter: str | None = None
+
+
+class AddQuestionRequest(BaseModel):
+    """Add a custom application question to an in-flight application. If a
+    matching answer exists in memory it is auto-filled."""
+
+    label: str
+    type: str = "text"  # text | textarea | select
+    options: list[str] = Field(default_factory=list)
+    required: bool = True
+
+
+class ForgetAnswerRequest(BaseModel):
+    key: str
+
+
+class UpsertAnswerRequest(BaseModel):
+    """Manually create or update a remembered answer."""
+
+    question: str
+    value: Any
+    type: str = "text"
+    options: list[str] = Field(default_factory=list)
