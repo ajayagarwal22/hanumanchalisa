@@ -318,6 +318,21 @@ export function ReviewModal({
                   </ul>
                 </details>
               )}
+              {!!report.notes?.length && (
+                <details>
+                  <summary>Diagnostics</summary>
+                  {report.page_url && (
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      Page: {report.page_url}
+                    </div>
+                  )}
+                  <ul className="reasons">
+                    {report.notes.map((n, i) => (
+                      <li key={i}>{n}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
           )}
         </div>

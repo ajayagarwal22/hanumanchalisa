@@ -154,5 +154,7 @@ export interface AutofillReport {
   skipped_prefilled?: string[];
   ready_to_submit?: boolean;
   external_url?: string | null;
+  notes?: string[];
+  page_url?: string | null;
   message: string;
 }

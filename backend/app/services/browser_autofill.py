@@ -320,27 +320,73 @@ async def _fill_choice_groups(page, scope, profile, store, report, extras=None) 
             continue
 
 
-async def _fill_modal(page, profile, store, report, extras=None) -> None:
+async def _note(report, msg: str) -> None:
+    report.setdefault("notes", []).append(msg)
+
+
+async def _robust_click(locator) -> bool:
+    """Click a locator, scrolling into view and falling back to a JS click."""
+    try:
+        if await locator.count() == 0:
+            return False
+        el = locator.first
+        try:
+            await el.scroll_into_view_if_needed(timeout=4000)
+        except Exception:
+            pass
+        try:
+            await el.click(timeout=6000)
+            return True
+        except Exception:
+            await el.evaluate("e => e.click()")
+            return True
+    except Exception:
+        return False
+
+
+async def _fill_modal(page, profile, store, report, extras=None) -> int:
+    """Fill the currently visible Easy Apply dialog. Returns fields filled."""
+    before = len(report["filled"])
     modal = page.locator("div[role=dialog]").last
-    scope = modal if await modal.count() > 0 else page
-    handle = await scope.element_handle() if hasattr(scope, "element_handle") else page
-    target = handle or page
+    target = page
+    if await modal.count() > 0:
+        handle = await modal.element_handle()
+        if handle:
+            target = handle
     await _fill_inputs(page, target, profile, store, report, extras)
     await _fill_choice_groups(page, target, profile, store, report, extras)
+    return len(report["filled"]) - before
 
 
 async def autofill_easy_apply(page, profile, store, report, extras=None) -> None:
     report["mode"] = "easy_apply"
-    btn = page.locator("button.jobs-apply-button, button:has-text('Easy Apply')").first
+    # Open the Easy Apply dialog.
+    apply = page.locator(
+        "button.jobs-apply-button, "
+        "button[aria-label*='Easy Apply'], "
+        "button:has-text('Easy Apply')"
+    )
+    if not await _robust_click(apply):
+        report["message"] = (
+            "Found the job but couldn't click Easy Apply automatically. Open "
+            "Easy Apply in the browser, then click auto-fill again."
+        )
+        return
     try:
-        await btn.click(timeout=10000)
+        await page.wait_for_selector("div[role=dialog]", timeout=12000)
+        await _note(report, "Easy Apply dialog opened.")
     except Exception:
-        report["message"] = "Could not open the Easy Apply dialog — open it manually, then re-run."
+        report["message"] = (
+            "Easy Apply didn't open a dialog (LinkedIn may have changed it, or this "
+            "job redirects to an external site). Continue in the browser."
+        )
         return
     await page.wait_for_timeout(1500)
 
-    for _ in range(10):
-        await _fill_modal(page, profile, store, report, extras)
+    for step in range(12):
+        filled = await _fill_modal(page, profile, store, report, extras)
+        await _note(report, f"Step {step + 1}: filled {filled} field(s).")
+
         submit = page.locator(
             "button[aria-label*='Submit application'], button:has-text('Submit application')"
         )
@@ -351,49 +397,68 @@ async def autofill_easy_apply(page, profile, store, report, extras=None) -> None
                 "Submit application yourself."
             )
             return
+
         nxt = page.locator(
             "button[aria-label*='Continue to next step'], "
             "button[aria-label*='Review your application'], "
+            "footer button:has-text('Review'), footer button:has-text('Next'), "
             "button:has-text('Review'), button:has-text('Next')"
-        ).first
-        if await nxt.count() == 0:
+        )
+        if not await _robust_click(nxt):
             break
-        try:
-            await nxt.click(timeout=8000)
-        except Exception:
-            break
-        await page.wait_for_timeout(1200)
+        await page.wait_for_timeout(1400)
 
     report["message"] = (
-        "Filled what I could. Some steps need your input — continue in the browser."
+        "Filled what I could in Easy Apply. Some steps may need your input — "
+        "continue in the browser, then submit yourself."
     )
 
 
 async def autofill_external(page, context, profile, store, report, extras=None) -> None:
     report["mode"] = "external"
     apply_btn = page.locator(
-        "button:has-text('Apply'), a:has-text('Apply'), "
-        "a.jobs-apply-button, button.jobs-apply-button"
+        "a.jobs-apply-button, button.jobs-apply-button, "
+        "button[aria-label*='Apply'], a[aria-label*='Apply'], "
+        "button:has-text('Apply'), a:has-text('Apply')"
     ).first
-    try:
-        async with context.expect_page(timeout=15000) as new_page_info:
-            await apply_btn.click(timeout=10000)
-        ext = await new_page_info.value
-    except Exception:
-        # Some external applies navigate in the same tab instead of opening one.
-        ext = page
+    ext = page
+    has_apply = await apply_btn.count() > 0
+    if has_apply:
+        try:
+            async with context.expect_page(timeout=12000) as new_page_info:
+                await _robust_click(apply_btn)
+            ext = await new_page_info.value
+            await _note(report, "External application opened in a new tab.")
+        except Exception:
+            # Some "Apply" buttons navigate the same tab instead of opening one.
+            await _note(report, "Apply clicked; staying in the same tab.")
+            ext = page
+    else:
+        # The page may already BE an application form (e.g. direct ATS link).
+        await _note(report, "No Apply button; filling the current page directly.")
     try:
         await ext.wait_for_load_state("domcontentloaded", timeout=30000)
     except Exception:
         pass
-    await ext.wait_for_timeout(2000)
+    await ext.wait_for_timeout(2500)
+    try:
+        await ext.bring_to_front()
+    except Exception:
+        pass
     report["external_url"] = ext.url
     await _fill_inputs(ext, ext, profile, store, report, extras)
     await _fill_choice_groups(ext, ext, profile, store, report, extras)
-    report["message"] = (
-        "Opened the external application and filled matching fields. Review, "
-        "complete anything left, and submit on that site yourself."
-    )
+    if not report["filled"]:
+        report["message"] = (
+            "Opened the external application but couldn't match any fields "
+            f"automatically on {ext.url}. Some ATS sites load fields dynamically "
+            "or in iframes — fill it in the browser."
+        )
+    else:
+        report["message"] = (
+            "Opened the external application and filled matching fields. Review, "
+            "complete anything left, and submit on that site yourself."
+        )
 
 
 async def autofill_job(
@@ -415,22 +480,61 @@ async def autofill_job(
         "skipped_prefilled": [],
         "ready_to_submit": False,
         "external_url": None,
+        "notes": [],
+        "page_url": None,
         "message": "",
     }
+    is_linkedin = "linkedin.com" in job_url
+    sample = "/sample-" in job_url
+    if sample:
+        return {
+            "ok": False,
+            "logged_in": True,
+            "message": (
+                "This is a sample/demo job (live LinkedIn search was unavailable, "
+                "so placeholder listings were shown). Auto-fill needs a real job "
+                "URL — run a search that returns live LinkedIn results, or paste a "
+                "real job link."
+            ),
+        }
     try:
         await session.start()
         page = await session.page()
-        if "linkedin.com" in job_url and not await is_logged_in(page):
+        if is_linkedin and not await is_logged_in(page):
             return {
                 "ok": False,
                 "logged_in": False,
                 "message": "Connect LinkedIn first (a browser window will open for login).",
             }
         await page.goto(job_url, wait_until="domcontentloaded", timeout=45000)
-        await page.wait_for_timeout(2500)
+        try:
+            await page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+        # Wait for the apply controls to render (LinkedIn lazy-loads them).
+        try:
+            await page.wait_for_selector(
+                "button.jobs-apply-button, a.jobs-apply-button, "
+                "button:has-text('Easy Apply'), button:has-text('Apply'), "
+                "a:has-text('Apply')",
+                timeout=15000,
+            )
+        except Exception:
+            await _note(report, "No apply button detected within 15s.")
+        await page.wait_for_timeout(1500)
+        try:
+            await page.bring_to_front()
+        except Exception:
+            pass
+        report["page_url"] = page.url
 
-        is_easy = await page.locator("button:has-text('Easy Apply')").count() > 0
-        if is_easy:
+        easy_count = await page.locator(
+            "button.jobs-apply-button, button[aria-label*='Easy Apply'], "
+            "button:has-text('Easy Apply')"
+        ).count()
+        await _note(report, f"Easy Apply buttons found: {easy_count}.")
+
+        if easy_count > 0:
             await autofill_easy_apply(page, profile, store, report, extras)
         else:
             await autofill_external(page, session.context, profile, store, report, extras)
