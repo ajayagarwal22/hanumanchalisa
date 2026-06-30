@@ -324,6 +324,38 @@ async def _note(report, msg: str) -> None:
     report.setdefault("notes", []).append(msg)
 
 
+async def _count_fields(page) -> int:
+    """Count form controls across the main document and all child frames."""
+    total = 0
+    for fr in page.frames:
+        try:
+            els = await fr.query_selector_all("input, textarea, select")
+            total += len(els)
+        except Exception:
+            continue
+    return total
+
+
+async def _fill_page_and_frames(page, profile, store, report, extras=None) -> None:
+    """Fill the main document and every same/cross-origin child frame.
+
+    Many ATS embed the application form in an iframe (e.g. Greenhouse), so we
+    must descend into frames, not just the top document."""
+    # main document first
+    await _fill_inputs(page, page, profile, store, report, extras)
+    await _fill_choice_groups(page, page, profile, store, report, extras)
+    # then each child frame
+    main = page.main_frame
+    for fr in page.frames:
+        if fr == main:
+            continue
+        try:
+            await _fill_inputs(page, fr, profile, store, report, extras)
+            await _fill_choice_groups(page, fr, profile, store, report, extras)
+        except Exception:
+            continue
+
+
 async def _robust_click(locator) -> bool:
     """Click a locator, scrolling into view and falling back to a JS click."""
     try:
@@ -440,20 +472,53 @@ async def autofill_external(page, context, profile, store, report, extras=None) 
         await ext.wait_for_load_state("domcontentloaded", timeout=30000)
     except Exception:
         pass
-    await ext.wait_for_timeout(2500)
     try:
         await ext.bring_to_front()
     except Exception:
         pass
-    report["external_url"] = ext.url
-    await _fill_inputs(ext, ext, profile, store, report, extras)
-    await _fill_choice_groups(ext, ext, profile, store, report, extras)
-    if not report["filled"]:
-        report["message"] = (
-            "Opened the external application but couldn't match any fields "
-            f"automatically on {ext.url}. Some ATS sites load fields dynamically "
-            "or in iframes — fill it in the browser."
+    try:
+        await ext.wait_for_load_state("networkidle", timeout=12000)
+    except Exception:
+        pass
+    # Some ATS pages have a landing "Apply" / "Apply for this job" button that
+    # reveals the form — click it if no fields are present yet.
+    if await _count_fields(ext) == 0:
+        revealed = await _robust_click(
+            ext.locator(
+                "button:has-text('Apply for this job'), a:has-text('Apply for this job'), "
+                "button:has-text('Apply Now'), a:has-text('Apply Now'), "
+                "button:has-text('I'm interested'), button#apply_button"
+            )
         )
+        if revealed:
+            await _note(report, "Clicked an ATS landing 'Apply' button to reveal the form.")
+            await ext.wait_for_timeout(2000)
+    # Wait for actual form fields to render (handles dynamic / iframe forms).
+    for _ in range(6):
+        if await _count_fields(ext) > 0:
+            break
+        await ext.wait_for_timeout(1500)
+
+    report["external_url"] = ext.url
+    nframes = len(ext.frames)
+    nfields = await _count_fields(ext)
+    await _note(report, f"External page: {nframes} frame(s), {nfields} form field(s) detected.")
+
+    await _fill_page_and_frames(ext, profile, store, report, extras)
+
+    if not report["filled"]:
+        if nfields == 0:
+            report["message"] = (
+                f"Opened {ext.url} but found no fillable fields — this ATS likely "
+                "renders inside a closed component/shadow DOM or loads after extra "
+                "steps. Complete it in the browser."
+            )
+        else:
+            report["message"] = (
+                f"Opened {ext.url} with {nfields} field(s) but none matched your "
+                "profile/answers by label. Fill it in the browser; add any recurring "
+                "questions to Saved Answers so they auto-fill next time."
+            )
     else:
         report["message"] = (
             "Opened the external application and filled matching fields. Review, "
