@@ -1,1 +1,225 @@
-# hanumanchalisa
+# AutoApply
+
+A resume-driven job-application assistant for **LinkedIn jobs**. Upload your
+resume (PDF / DOCX), add your LinkedIn, GitHub and website links, and AutoApply
+will:
+
+1. **Parse your resume** into a structured profile (name, contact, skills,
+   titles, years of experience, links).
+2. **Discover matching jobs** from public LinkedIn listings.
+3. **Score & rank** each job against your resume (skill overlap + text
+   similarity + title affinity).
+4. **Draft a tailored cover letter** for any job (LLM-powered when an API key is
+   set, otherwise a genuinely-tailored template).
+5. **Complete the full application form**, pre-filled from your profile, with
+   low-confidence fields flagged for review.
+6. **Ask for your approval before anything is submitted** — you review every
+   field and the cover letter, edit as needed, then explicitly approve.
+7. **Remember your answers.** When a new screening question appears you answer
+   (or edit) it once; on approval it's saved to an **answer memory** and
+   auto-filled next time — even when the question is slightly reworded (fuzzy
+   matched). Manage saved answers in the **Saved Answers** tab.
+8. **Auto-fill the real form in a browser.** One click opens the actual
+   application — LinkedIn *Easy Apply* or the **external** company/ATS site —
+   and fills every field it can from your profile, saved answers and the tailored
+   cover letter, then **stops before submit** so you review and submit yourself.
+
+> **Human-in-the-loop by design.** Nothing is ever submitted automatically.
+> See [Responsible use](#responsible-use--linkedin-terms).
+
+---
+
+## Architecture
+
+```
+frontend/   React + Vite + TypeScript single-page app (4-step wizard)
+backend/    FastAPI service
+  app/services/resume_parser.py   PDF/DOCX/TXT -> structured profile
+  app/services/job_search.py      LinkedIn public "guest" job discovery
+  app/services/matcher.py         pure-Python TF-IDF + skill match scoring
+  app/services/cover_letter.py    LLM or template cover-letter generation
+  app/services/application.py     form assembly + approval/submission gate
+  app/routers/                    REST API
+```
+
+The backend works **fully offline** with zero credentials. Optional features:
+
+| Feature                | Requires                          | Fallback                       |
+| ---------------------- | --------------------------------- | ------------------------------ |
+| Live LinkedIn search   | outbound network                  | representative sample postings |
+| LLM cover letters      | `OPENAI_API_KEY`                  | tailored template generator    |
+| Browser auto-fill      | Playwright + a display (native run)   | manual fill via apply link     |
+| Automated submission   | `ENABLE_BROWSER_SUBMIT` + Playwright | approval-gated manual finish   |
+
+---
+
+## Install & run
+
+You have two options. **Docker is the easiest** (nothing to install but Docker).
+
+### Option A — Docker (recommended)
+
+Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+git clone https://github.com/ajayagarwal22/hanumanchalisa.git
+cd hanumanchalisa
+git checkout cursor/linkedin-job-apply-app-23c7
+docker compose up --build
+```
+
+Then open <http://127.0.0.1:7700>. Your profile, applications and saved answers
+persist in a Docker volume. Stop with `Ctrl+C` (or `docker compose down`).
+
+To enable AI cover letters, run with a key:
+`OPENAI_API_KEY=sk-... docker compose up --build`.
+
+If port 7700 is busy, edit `docker-compose.yml` (`"7711:7700"`) and open `:7711`.
+
+### Option B — one script (needs Python 3.10+ and Node 18+)
+
+```bash
+git clone https://github.com/ajayagarwal22/hanumanchalisa.git
+cd hanumanchalisa
+git checkout cursor/linkedin-job-apply-app-23c7
+./run.sh          # creates a venv, installs deps, builds the UI, starts the app
+```
+
+Open <http://127.0.0.1:7700>. Override the port with `PORT=7711 ./run.sh`.
+
+---
+
+## Manual / dev setup
+
+### 1. Backend
+
+```bash
+cd backend
+pip install -r requirements.txt          # add --break-system-packages on Debian/Ubuntu
+cp .env.example .env                      # optional: add OPENAI_API_KEY
+python -m uvicorn app.main:app --reload --port 7700
+```
+
+> Ports avoid the commonly-used 3000/5000/6000/8000/9000 ranges. Override the
+> backend port with `--port <n>` (and update `frontend/vite.config.ts` proxy to
+> match), or `PORT=<n> ./run.sh`.
+
+API docs: <http://127.0.0.1:7700/docs>
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev        # dev server on http://127.0.0.1:7701 (proxies /api -> :7700)
+```
+
+Or build it once and let the backend serve it as a single app:
+
+```bash
+cd frontend && npm run build
+# then open http://127.0.0.1:7700  (uvicorn serves frontend/dist)
+```
+
+---
+
+## How it works (the 4 steps in the UI)
+
+1. **Profile & Resume** — drag in your resume; verify the extracted fields; add
+   your LinkedIn / GitHub / website links.
+2. **Find Jobs** — search by keywords + location (remote toggle). Each result
+   shows a 0–100 match score, matched/missing skills, and the reasoning.
+3. **Draft application** — pick a job to generate a tailored cover letter and a
+   complete, pre-filled application form.
+4. **Review & approve** — edit any field or the cover letter, fill the questions
+   that need your judgment (work authorization, sponsorship, …), then
+   **Approve & submit** or **Reject**. Required fields are enforced before
+   approval. Hit a question the app didn't anticipate? Add it via *"Encountered
+   a new question?"*; it auto-fills if you've answered something similar before,
+   otherwise it's saved once you approve.
+
+### Answer memory
+
+- Approving an application stores every question answer (questions only — not
+  personal profile fields or the job-specific cover letter).
+- Future applications auto-fill matching questions, flagged with a **↺ from
+  memory** badge so you can still verify them.
+- Matching is exact-first, then token-similarity fuzzy matching, so reworded
+  questions still resolve to the same saved answer.
+- The **Saved Answers** tab lists everything stored; you can pre-seed, edit, or
+  forget answers. Endpoints: `GET/POST/DELETE /api/memory`.
+
+### Browser auto-fill (Easy Apply + external sites)
+
+In the review dialog, **Auto-fill in your browser** drives a real browser to
+complete the application for you — without ever submitting it.
+
+Setup (once), on the machine running the app:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Run the app **natively** (`./run.sh`) rather than headless Docker, so a browser
+window can open. Then in the review dialog:
+
+1. **Connect LinkedIn** — a browser window opens; log in once. The session is
+   saved locally in `backend/data/browser_profile` (your password is never
+   stored by the app).
+2. **Auto-fill this application** — the app opens the job and:
+   - **Easy Apply:** clicks through each step, filling text/select/radio fields
+     from your profile, saved answers and the cover letter, stopping at the
+     final *Submit application* screen for you to review and submit.
+   - **External:** follows the "Apply" link to the company/ATS site and fills
+     the matching fields there.
+3. A report shows what was filled and which questions still **need your input**.
+   You review everything and click submit yourself.
+
+Endpoints: `GET /api/automation/status`, `POST /api/automation/connect`,
+`POST /api/automation/autofill`, `POST /api/automation/close`.
+
+> Note: this auto-fills only — it never submits. Selectors target LinkedIn's
+> current Easy Apply DOM and common ATS field labels; if a site uses an unusual
+> layout, unmatched fields are reported for you to complete manually.
+
+---
+
+## Configuration
+
+All settings are optional (see `backend/.env.example`):
+
+- `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `LLM_MODEL` — enable LLM cover letters
+  (any OpenAI-compatible endpoint).
+- `CORS_ORIGINS` — comma-separated allowed origins (default `*`).
+- `ENABLE_BROWSER_SUBMIT` — keep `false` (see below).
+
+---
+
+## Responsible use & LinkedIn terms
+
+LinkedIn's User Agreement prohibits automated actions on logged-in accounts
+(auto-applying, scraping private data, etc.). AutoApply is built to stay on the
+right side of that:
+
+- Job **discovery** uses only LinkedIn's public, unauthenticated job-search
+  endpoint — public listings, no login, no private data.
+- The app **never auto-submits**. It prepares a fully-reviewed package and
+  requires your explicit approval. By default it then hands you the apply link
+  plus your reviewed answers/cover letter to finish in **your own** logged-in
+  session.
+- `ENABLE_BROWSER_SUBMIT` is an opt-in extension point (left unimplemented on
+  purpose). Only enable automated browser submission if you have reviewed and
+  accept LinkedIn's terms and the associated account risk.
+
+Use this tool to save yourself time drafting and tailoring — not to spam
+applications.
+
+---
+
+## Roadmap / extension points
+
+- Implement the Playwright Easy-Apply driver in `application._browser_submit`.
+- Swap the JSON store for a database for multi-user use.
+- Add embeddings-based matching for higher-quality ranking.
+```

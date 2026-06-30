@@ -1,0 +1,18 @@
+services:
+  autoapply:
+    build: .
+    # Host port avoids the 3000/5000/6000/8000/9000 ranges. Change the left
+    # number if 7700 is busy, e.g. "7711:7700".
+    ports:
+      - "7700:7700"
+    environment:
+      # Optional: AI cover letters. Leave blank to use the template generator.
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      LLM_MODEL: "${LLM_MODEL:-gpt-4o-mini}"
+    # Persist your profile, applications and saved answers between restarts.
+    volumes:
+      - autoapply-data:/app/backend/data
+
+volumes:
+  autoapply-data:
