@@ -48,7 +48,43 @@ The backend works **fully offline** with zero credentials. Optional features:
 
 ---
 
-## Quick start
+## Install & run
+
+You have two options. **Docker is the easiest** (nothing to install but Docker).
+
+### Option A — Docker (recommended)
+
+Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+git clone https://github.com/ajayagarwal22/hanumanchalisa.git
+cd hanumanchalisa
+git checkout cursor/linkedin-job-apply-app-23c7
+docker compose up --build
+```
+
+Then open <http://127.0.0.1:7700>. Your profile, applications and saved answers
+persist in a Docker volume. Stop with `Ctrl+C` (or `docker compose down`).
+
+To enable AI cover letters, run with a key:
+`OPENAI_API_KEY=sk-... docker compose up --build`.
+
+If port 7700 is busy, edit `docker-compose.yml` (`"7711:7700"`) and open `:7711`.
+
+### Option B — one script (needs Python 3.10+ and Node 18+)
+
+```bash
+git clone https://github.com/ajayagarwal22/hanumanchalisa.git
+cd hanumanchalisa
+git checkout cursor/linkedin-job-apply-app-23c7
+./run.sh          # creates a venv, installs deps, builds the UI, starts the app
+```
+
+Open <http://127.0.0.1:7700>. Override the port with `PORT=7711 ./run.sh`.
+
+---
+
+## Manual / dev setup
 
 ### 1. Backend
 
