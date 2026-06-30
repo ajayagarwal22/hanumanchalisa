@@ -434,10 +434,10 @@
   // verse index -> ordered list of shot images (one per recited line).
   // each shot: { src, pos } where pos is the object-position focal point so the
   // subject (feet / face) stays framed despite cover-crop + Ken Burns.
-  const S1 = { src: "assets/film/shot1.png", pos: "center 70%" };
-  const S2 = { src: "assets/film/shot2.png", pos: "center 24%" };
-  const S3 = { src: "assets/film/shot3.png", pos: "center 52%" };
-  const S4 = { src: "assets/film/shot4.png", pos: "center 20%" };
+  const S1 = { src: "assets/film/shot1.png", pos: "center 70%", fx: "altar" };
+  const S2 = { src: "assets/film/shot2.png", pos: "center 24%", fx: "rama" };
+  const S3 = { src: "assets/film/shot3.png", pos: "center 52%", fx: "devotee" };
+  const S4 = { src: "assets/film/shot4.png", pos: "center 20%", fx: "hanuman" };
   const FILM = {
     0: [S1],
     1: [S1, S2],
@@ -448,19 +448,48 @@
   // refuses large media, so if the same-origin path fails we load from raw GitHub.
   const RAW_BASE = "https://raw.githubusercontent.com/ajayagarwal22/hanumanchalisa/cursor/hanuman-chalisa-animation-4603/";
 
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function petals(n) {
+    let s = "";
+    for (let i = 0; i < n; i++) s += '<span class="petal" style="left:' + rnd(4, 92).toFixed(1) + "%;animation-delay:" + (-rnd(0, 9)).toFixed(1) + "s;animation-duration:" + rnd(6, 12).toFixed(1) + 's"></span>';
+    return s;
+  }
+  function embers(n) {
+    let s = "";
+    for (let i = 0; i < n; i++) s += '<span class="ember2" style="left:' + rnd(34, 82).toFixed(1) + "%;bottom:" + rnd(8, 42).toFixed(1) + "%;animation-delay:" + (-rnd(0, 4)).toFixed(1) + "s;animation-duration:" + rnd(2.4, 5).toFixed(1) + 's"></span>';
+    return s;
+  }
+  function beams(n) {
+    let s = "";
+    for (let i = 0; i < n; i++) s += '<span class="beam" style="--a:' + rnd(-42, -8).toFixed(0) + "deg;top:" + rnd(33, 47).toFixed(0) + "%;left:" + rnd(46, 58).toFixed(0) + "%;animation-delay:" + (-rnd(0, 2)).toFixed(1) + 's"></span>';
+    return s;
+  }
+  // animated overlay so the photoreal frame visibly moves (cinemagraph)
+  function fx(kind) {
+    const shaft = '<div class="shaft"></div>';
+    const smoke = '<div class="plume p1"></div><div class="plume p2"></div><div class="plume p3"></div>';
+    if (kind === "altar") return '<div class="fx">' + shaft + smoke + '<div class="flamehot f1"></div><div class="flamehot f2"></div><div class="flamehot f3"></div></div>';
+    if (kind === "rama") return '<div class="fx">' + shaft + petals(12) + '<div class="bloom"></div></div>';
+    if (kind === "devotee") return '<div class="fx">' + shaft + smoke + '<div class="flamehot f2"></div></div>';
+    if (kind === "hanuman") return '<div class="fx">' + shaft + '<div class="aurapulse"></div>' + embers(12) + beams(6) + "</div>";
+    return '<div class="fx">' + shaft + "</div>";
+  }
+
   function buildFilm(index) {
     const shots = FILM[index];
-    let imgs = "";
+    let layers = "";
     shots.forEach(function (s, i) {
       const fallback = RAW_BASE + s.src;
-      imgs += '<img class="film-shot kb' + (i % 2) + (i === 0 ? " active" : "") +
-        '" data-shot="' + i + '" alt="" style="object-position:' + s.pos + '"' +
-        ' onerror="this.onerror=null;this.src=\'' + fallback + '\'"' +
-        ' src="' + s.src + '">';
+      layers +=
+        '<div class="film-layer kb' + (i % 2) + (i === 0 ? " active" : "") + '" data-shot="' + i + '">' +
+        '<img class="film-shot" alt="" style="object-position:' + s.pos + '"' +
+        ' onerror="this.onerror=null;this.src=\'' + fallback + '\'" src="' + s.src + '">' +
+        fx(s.fx) +
+        "</div>";
     });
     return (
       '<div class="scene scene-film">' +
-      '<div class="film-frame">' + imgs + "</div>" +
+      '<div class="film-frame">' + layers + "</div>" +
       '<div class="godrays"></div><div class="dust"></div>' +
       '<div class="film-vignette"></div>' +
       '<div class="letterbox lb-top"></div><div class="letterbox lb-bottom"></div>' +

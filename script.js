@@ -227,7 +227,7 @@
     // Cinematic film verses: prepare shot list + per-line start times.
     filmState = null;
     if (window.Scenes && Scenes.FILM && Scenes.FILM[index]) {
-      const shots = sceneStage.querySelectorAll(".film-shot");
+      const shots = sceneStage.querySelectorAll(".film-layer");
       if (shots.length) {
         filmState = { shots: shots, starts: filmBoundaries(index, shots.length), active: -1 };
         setFilmShot(hasAudio && isFinite(audio.currentTime) ? audio.currentTime : filmState.starts[0]);

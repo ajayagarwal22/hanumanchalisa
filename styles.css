@@ -941,19 +941,58 @@ body.playing .ic-pause { display: block; }
    ===================================================================== */
 .scene-film { position: absolute; inset: 0; background: #000; animation: sceneIn .7s ease; }
 .film-frame { position: absolute; inset: 0; overflow: hidden; }
-.film-shot {
+.film-layer {
   position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover; object-position: center;
   opacity: 0;
   transition: opacity 1.3s ease;
   will-change: transform, opacity;
 }
-.film-shot.active { opacity: 1; }
-.film-shot.kb0.active { animation: kb0 18s ease-out both; }
-.film-shot.kb1.active { animation: kb1 18s ease-out both; }
+.film-layer.active { opacity: 1; }
+.film-layer.kb0.active { animation: kb0 18s ease-out both; }
+.film-layer.kb1.active { animation: kb1 18s ease-out both; }
 @keyframes kb0 { from { transform: scale(1.03) translate(-1%, 0.6%); } to { transform: scale(1.12) translate(1%, -0.6%); } }
 @keyframes kb1 { from { transform: scale(1.1) translate(1%, 0.6%); } to { transform: scale(1.02) translate(-1%, -0.4%); } }
+.film-shot {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+}
+
+/* ---- cinemagraph FX layered on the photoreal frame ---- */
+.fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.shaft { position: absolute; top: -20%; left: 30%; width: 42%; height: 150%;
+  background: linear-gradient(180deg, rgba(255,238,200,.22), transparent 70%);
+  filter: blur(9px); mix-blend-mode: screen; transform-origin: 50% 0;
+  animation: shaftSweep 9s ease-in-out infinite alternate; }
+@keyframes shaftSweep { from { transform: rotate(-6deg) translateX(-6%); opacity: .45; } to { transform: rotate(6deg) translateX(6%); opacity: .9; } }
+.plume { position: absolute; bottom: 4%; width: 64px; height: 96px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,222,202,.5), transparent 70%); filter: blur(7px);
+  mix-blend-mode: screen; opacity: 0; animation: smokeRise 7s ease-in infinite; }
+.p1 { left: 40%; } .p2 { left: 56%; animation-delay: 2.6s; } .p3 { left: 48%; animation-delay: 4.6s; }
+@keyframes smokeRise { 0% { transform: translateY(0) scale(.6); opacity: 0; } 22% { opacity: .55; } 100% { transform: translateY(-170px) scale(1.6); opacity: 0; } }
+.flamehot { position: absolute; width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,222,120,.95), rgba(255,150,40,.5) 50%, transparent 72%);
+  mix-blend-mode: screen; filter: blur(1px); animation: flick .5s ease-in-out infinite alternate; }
+.f1 { right: 20%; bottom: 20%; } .f2 { right: 13%; bottom: 30%; animation-delay: .2s; } .f3 { left: 42%; bottom: 12%; animation-delay: .35s; }
+@keyframes flick { from { transform: scale(.82); opacity: .65; } to { transform: scale(1.18); opacity: 1; } }
+.petal { position: absolute; top: -6%; width: 11px; height: 8px;
+  background: radial-gradient(circle at 30% 30%, #ffd4df, #e2698f); border-radius: 60% 60% 60% 0;
+  opacity: .85; animation: petalFall linear infinite; }
+@keyframes petalFall { 0% { transform: translateY(0) translateX(0) rotate(0); } 100% { transform: translateY(440px) translateX(46px) rotate(380deg); } }
+.bloom { position: absolute; inset: 0; mix-blend-mode: screen;
+  background: radial-gradient(circle at 50% 44%, rgba(255,240,200,.28), transparent 55%); animation: bloomPulse 4s ease-in-out infinite; }
+@keyframes bloomPulse { 0%,100% { opacity: .3; } 50% { opacity: .75; } }
+.aurapulse { position: absolute; left: 56%; top: 42%; width: 58%; height: 84%; transform: translate(-50%,-50%);
+  background: radial-gradient(circle, rgba(255,200,90,.45), rgba(255,150,40,.16) 45%, transparent 66%);
+  mix-blend-mode: screen; filter: blur(4px); animation: auraPulse2 2.6s ease-in-out infinite; }
+@keyframes auraPulse2 { 0%,100% { opacity: .5; transform: translate(-50%,-50%) scale(.95); } 50% { opacity: 1; transform: translate(-50%,-50%) scale(1.09); } }
+.ember2 { position: absolute; width: 5px; height: 5px; border-radius: 50%;
+  background: radial-gradient(circle, #fff0b0, #ff9a3c 60%, transparent); mix-blend-mode: screen; animation: emberRise2 linear infinite; }
+@keyframes emberRise2 { 0% { transform: translateY(0) scale(.6); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-190px) translateX(22px) scale(1.1); opacity: 0; } }
+.beam { position: absolute; width: 120px; height: 4px; border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255,232,150,.9), transparent); transform-origin: 0 50%;
+  transform: rotate(var(--a)); mix-blend-mode: screen; filter: blur(1px); animation: beamFlow 1.6s ease-in-out infinite; }
+@keyframes beamFlow { 0%,100% { opacity: .2; width: 80px; } 50% { opacity: .9; width: 155px; } }
 
 .film-vignette { position: absolute; inset: 0; pointer-events: none; z-index: 7;
   box-shadow: inset 0 0 150px 36px rgba(0,0,0,.62), inset 0 0 50px rgba(0,0,0,.4); }
