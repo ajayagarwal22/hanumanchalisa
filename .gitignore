@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.env
+
+# Data / uploads (runtime state)
+backend/data/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+npm-debug.log*
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
